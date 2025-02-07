@@ -19,7 +19,7 @@ namespace AttendanceTracker1.Models
         public string Phone { get; set; } = string.Empty;
 
         [Required]
-        public string PasswordHash { get; set; } = string.Empty; // Change Password to PasswordHash
+        public string PasswordHash { get; set; } = string.Empty; 
 
         [Required]
         [RegularExpression("^(Admin|Employee)$", ErrorMessage = "Role must be either 'Admin' or 'Employee'.")]
@@ -27,6 +27,8 @@ namespace AttendanceTracker1.Models
 
         public DateTime Created { get; set; } = DateTime.Now;
         public DateTime Updated { get; set; }
+
+        public ICollection<Attendance>? Attendances { get; set; }
 
         // 🔹 Hash password before saving
         public void SetPassword(string password)
