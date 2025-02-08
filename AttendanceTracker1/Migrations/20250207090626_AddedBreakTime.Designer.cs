@@ -4,6 +4,7 @@ using AttendanceTracker1.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AttendanceTracker1.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250207090626_AddedBreakTime")]
+    partial class AddedBreakTime
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -39,20 +42,8 @@ namespace AttendanceTracker1.Migrations
                     b.Property<DateTime>("ClockIn")
                         .HasColumnType("datetime2");
 
-                    b.Property<double?>("ClockInLatitude")
-                        .HasColumnType("float");
-
-                    b.Property<double?>("ClockInLongitude")
-                        .HasColumnType("float");
-
                     b.Property<DateTime?>("ClockOut")
                         .HasColumnType("datetime2");
-
-                    b.Property<double?>("ClockOutLatitude")
-                        .HasColumnType("float");
-
-                    b.Property<double?>("ClockOutLongitude")
-                        .HasColumnType("float");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");

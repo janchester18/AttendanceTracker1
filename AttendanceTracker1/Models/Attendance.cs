@@ -15,27 +15,99 @@ namespace AttendanceTracker1.Models
         public virtual User? User { get; set; }
 
         [Required]
-        public DateTime Date { get; set; }  
+        public DateTime Date { get; set; }
 
         [Required]
-        public DateTime ClockIn { get; set; }  
+        public DateTime ClockIn { get; set; }
 
-        public DateTime? ClockOut { get; set; }  
+        public DateTime? ClockOut { get; set; }
 
-        [NotMapped] 
-        public TimeSpan? WorkDuration => ClockOut.HasValue ? ClockOut - ClockIn : null;
+        // New properties for location tracking
+        public double? ClockInLatitude { get; set; }
+        public double? ClockInLongitude { get; set; }
+        public double? ClockOutLatitude { get; set; }
+        public double? ClockOutLongitude { get; set; }
+
+        // New properties to record break times (optional)
+        public DateTime? BreakStart { get; set; }
+        public DateTime? BreakFinish { get; set; }
+
+        /// <summary>
+        /// Calculates the effective work duration. 
+        /// If both ClockOut and break times are provided, it subtracts the break duration from the total time between ClockIn and ClockOut.
+        /// </summary>
+        [NotMapped]
+        public TimeSpan? WorkDuration
+        {
+            get
+            {
+                // Ensure that ClockOut is available to calculate any duration
+                if (!ClockOut.HasValue)
+                    return null;
+
+                // Calculate the total time between clock in and clock out
+                TimeSpan totalDuration = ClockOut.Value - ClockIn;
+
+                // If both break start and finish are provided, subtract the break duration
+                if (BreakStart.HasValue && BreakFinish.HasValue)
+                {
+                    TimeSpan breakDuration = BreakFinish.Value - BreakStart.Value;
+                    totalDuration = totalDuration - breakDuration;
+                }
+
+                return totalDuration;
+            }
+        }
 
         [Required]
         public AttendanceStatus Status { get; set; }  // Enum (Present, Absent, Late, OnLeave)
 
         public string? Remarks { get; set; }  // Optional comments
+
+        /// <summary>
+        /// Returns a formatted string representation of the work duration.
+        /// </summary>
+        public string FormattedWorkDuration
+        {
+            get
+            {
+                if (!WorkDuration.HasValue)
+                    return "N/A";
+
+                // Round the hours and minutes appropriately
+                double totalHours = WorkDuration.Value.TotalHours;
+                int hours = (int)totalHours;
+                int minutes = WorkDuration.Value.Minutes;
+
+                return $"{hours}h {minutes}m";
+            }
+        }
+
+        /// <summary>
+        /// Returns a formatted string representation of the break duration.
+        /// </summary>
+        public string FormattedBreakDuration
+        {
+            get
+            {
+                if (BreakStart.HasValue && BreakFinish.HasValue)
+                {
+                    TimeSpan breakDuration = BreakFinish.Value - BreakStart.Value;
+                    int hours = (int)breakDuration.TotalHours;
+                    int minutes = breakDuration.Minutes;
+                    return $"{hours}h {minutes}m";
+                }
+
+                return "N/A";
+            }
+        }
     }
 
     public enum AttendanceStatus
     {
-        Present,
-        Absent,
-        Late,
-        OnLeave
+        Present = 1,
+        Absent = 2,
+        Late = 3,
+        OnLeave = 4
     }
 }
