@@ -44,7 +44,7 @@ namespace AttendanceTracker1.Controllers
 
             var user = new User
             {
-                Id = 0, // Let the database handle auto-increment (can be omitted if using Identity)
+                Id = 0, 
                 Name = model.Name,
                 Email = model.Email,
                 Phone = model.Phone,
@@ -53,7 +53,7 @@ namespace AttendanceTracker1.Controllers
                 Updated = DateTime.Now
             };
 
-            user.SetPassword(model.Password); // Hash the password
+            user.SetPassword(model.Password); 
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
