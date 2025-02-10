@@ -29,6 +29,9 @@ namespace AttendanceTracker1.Models
         public DateTime Updated { get; set; }
 
         public ICollection<Attendance>? Attendances { get; set; }
+        public ICollection<Leave>? Leaves { get; set; }
+
+        public ICollection<Leave>? Approvals { get; set; }
 
         // 🔹 Hash password before saving
         public void SetPassword(string password)

@@ -34,12 +34,12 @@ namespace AttendanceTracker1.Controllers
                         a.User.Name,
                         a.User.Email
                     },
-                    a.Date,          // Attendance Date
-                    a.ClockIn,       // Clock-in Time
-                    a.ClockOut,      // Clock-out Time
+                    a.Date,          
+                    a.ClockIn,       
+                    a.ClockOut,      
                     a.FormattedWorkDuration,
-                    a.Status,        // Status
-                    a.Remarks        // Remarks
+                    a.Status,        
+                    a.Remarks       
                 })
                 .ToListAsync();
 
@@ -52,27 +52,29 @@ namespace AttendanceTracker1.Controllers
         public async Task<IActionResult> GetAttendanceByUser(int userId)
         {
             var attendance = await _context.Attendances
+            .Where(a => a.UserId == userId)
             .Include(a => a.User)
             .Select(a => new
             {
-                a.Id, // Attendance ID
+                
                 a.UserId,
                 User = new
                 {
                     a.User.Name,
                     a.User.Email
                 },
-                a.Date,          // Attendance Date
-                a.ClockIn,       // Clock-in Time
-                a.ClockOut,      // Clock-out Time
+                a.Date,          
+                a.ClockIn,     
+                a.ClockOut,      
                 a.FormattedWorkDuration,
-                a.Status,        // Status
-                a.Remarks        // Remarks
+                a.Status,       
+                a.Remarks        
             })
                 .ToListAsync();
 
             return Ok(attendance);
         }
+
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetAttendanceByAttendanceId(int id)
@@ -89,12 +91,12 @@ namespace AttendanceTracker1.Controllers
                     a.User.Name,
                     a.User.Email
                 },
-                a.Date,          // Attendance Date
-                a.ClockIn,       // Clock-in Time
-                a.ClockOut,      // Clock-out Time
+                a.Date,          
+                a.ClockIn,       
+                a.ClockOut,      
                 a.FormattedWorkDuration,
-                a.Status,        // Status
-                a.Remarks        // Remarks
+                a.Status,       
+                a.Remarks       
             })
             .FirstOrDefaultAsync();
 
@@ -115,10 +117,10 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Determine today's date for comparison.
+        
             var today = DateTime.Now.Date;
 
-            // Check if an attendance record for today already exists for this user with a clock-in value.
+           
             var existingAttendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.UserId == clockInDto.UserId && a.Date == today);
 
@@ -127,7 +129,7 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest("You have already clocked in today.");
             }
 
-            // Validate optional ClockOut format.
+      
             DateTime? parsedClockOut = null;
             if (!string.IsNullOrEmpty(clockInDto.ClockOut) &&
                 DateTime.TryParse(clockInDto.ClockOut, out DateTime tempClockOut))
@@ -135,14 +137,14 @@ namespace AttendanceTracker1.Controllers
                 parsedClockOut = tempClockOut;
             }
 
-            // Validate the enum value for Status.
+            
             if (!Enum.IsDefined(typeof(AttendanceStatus), clockInDto.Status))
             {
                 return BadRequest(new { error = "Invalid status value." });
             }
             AttendanceStatus status = (AttendanceStatus)clockInDto.Status;
 
-            // Create a new Attendance entry.
+            
             var attendance = new Attendance
             {
                 UserId = clockInDto.UserId,
@@ -151,7 +153,6 @@ namespace AttendanceTracker1.Controllers
                 ClockOut = parsedClockOut,
                 Status = status,
                 Remarks = clockInDto.Remarks,
-                // Capture clock-in location (if provided)
                 ClockInLatitude = clockInDto.ClockInLatitude,
                 ClockInLongitude = clockInDto.ClockInLongitude
             };
@@ -175,12 +176,10 @@ namespace AttendanceTracker1.Controllers
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
-            // Check if the user has already clocked out
             if (attendance.ClockOut.HasValue)
                 return BadRequest("You have already clocked out.");
 
             attendance.ClockOut = DateTime.Now;
-            // Capture clock-out location (if provided)
             attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
             attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
@@ -203,11 +202,9 @@ namespace AttendanceTracker1.Controllers
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
-            // Check if the user is already clocked out
             if (attendance.ClockOut.HasValue)
                 return BadRequest("Cannot start break because you are already clocked out.");
 
-            // Check if a break session is already in progress or has been completed
             if (attendance.BreakStart.HasValue || attendance.BreakFinish.HasValue)
                 return BadRequest("Break has already been started or ended.");
 
@@ -225,7 +222,6 @@ namespace AttendanceTracker1.Controllers
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
-            // Check if break start exists
             if (!attendance.BreakStart.HasValue)
                 return BadRequest("Cannot end break because break has not been started.");
 
