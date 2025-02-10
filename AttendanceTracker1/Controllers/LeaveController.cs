@@ -34,8 +34,8 @@ namespace AttendanceTracker1.Controllers
                     StartDate = l.StartDate,
                     EndDate = l.EndDate,
                     DaysCount = l.DaysCount,
-                    Status = l.Status,
-                    Type = l.Type,
+                    StatusName = l.Status.ToString(),  
+                    TypeName = l.Type.ToString(),    
                     Reason = l.Reason,
                     ReviewedBy = l.ReviewedBy,
                     ApproverName = l.Approver != null ? l.Approver.Name : null,
@@ -46,6 +46,72 @@ namespace AttendanceTracker1.Controllers
             return Ok(leaves);
         }
 
+        [HttpGet("{id}")]
+        [Authorize]
+        public async Task<IActionResult> GetLeaveRequestById(int id)
+        {
+            var leave = await _context.Leaves
+                .Where(l => l.Id == id)
+                .Include(l => l.User)
+                .Include(l => l.Approver)
+                .Select(l => new LeaveResponseDto
+                {
+                    Id = l.Id,
+                    UserId = l.UserId,
+                    UserName = l.User != null ? l.User.Name : null, // Avoids cyclic reference
+                    StartDate = l.StartDate,
+                    EndDate = l.EndDate,
+                    DaysCount = l.DaysCount,
+                    StatusName = l.Status.ToString(),
+                    TypeName = l.Type.ToString(),
+                    Reason = l.Reason,
+                    ReviewedBy = l.ReviewedBy,
+                    ApproverName = l.Approver != null ? l.Approver.Name : null,
+                    CreatedDate = l.CreatedDate
+                })
+                .FirstOrDefaultAsync();
+
+            return Ok(leave);
+        }
+
+        [HttpGet("userId")]
+        [Authorize]
+        public async Task<IActionResult> GetLeaveRequestByUserId(int userId)
+        {
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+            if (!userExists)
+            {
+                return NotFound($"User with ID {userId} not found.");
+            }
+
+            var leave = await _context.Leaves
+                .Where(l => l.UserId == userId)
+                .Include(l => l.User)
+                .Include(l => l.Approver)
+                .Select(l => new LeaveResponseDto
+                {
+                    Id = l.Id,
+                    UserId = l.UserId,
+                    UserName = l.User != null ? l.User.Name : null, // Avoids cyclic reference
+                    StartDate = l.StartDate,
+                    EndDate = l.EndDate,
+                    DaysCount = l.DaysCount,
+                    StatusName = l.Status.ToString(),
+                    TypeName = l.Type.ToString(),
+                    Reason = l.Reason,
+                    ReviewedBy = l.ReviewedBy,
+                    ApproverName = l.Approver != null ? l.Approver.Name : null,
+                    CreatedDate = l.CreatedDate
+                })
+                .ToListAsync();
+
+            if (!leave.Any())
+            {
+                return NotFound($"User with ID {userId} has no leave requests.");
+            }
+
+            return Ok(leave);
+        }
 
         [HttpPost]
         [Authorize]
@@ -79,6 +145,28 @@ namespace AttendanceTracker1.Controllers
             });
         }
 
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Review (int id, [FromBody] LeaveReviewDto request)
+        {
+            var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
+            if (leave == null)
+            {
+                return NotFound($"Request with leave id: {id} was not found.");
+            }
 
+            // ✅ Validate if status is a valid enum value
+            if (!Enum.IsDefined(typeof(LeaveStatus), request.Status))
+            {
+                return BadRequest("Invalid leave status.");
+            }
+
+            leave.Status = request.Status;
+            leave.ReviewedBy = request?.ReviewedBy;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"Leave request {id} has been {leave.Status}." });
+        }
     }
 }

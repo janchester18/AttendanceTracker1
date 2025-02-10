@@ -10,8 +10,8 @@ namespace AttendanceTracker1.DTO
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public int DaysCount { get; set; }
-        public LeaveStatus Status { get; set; }
-        public LeaveType Type { get; set; }
+        public string StatusName { get; set; }
+        public string TypeName { get; set; }
         public string? Reason { get; set; }
         public int? ReviewedBy { get; set; }
         public string? ApproverName { get; set; } // Avoids cyclic reference
