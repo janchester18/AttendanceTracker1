@@ -105,13 +105,13 @@ namespace AttendanceTracker1.Controllers
             var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userId != null && refreshTokens.ContainsKey(userId))
             {
-                refreshTokens.Remove(userId); // 🔥 Remove refresh token to revoke access
+                refreshTokens.Remove(userId); 
             }
 
             return Ok(new { message = "Logged out successfully" });
         }
 
-        // 🔹 Refresh Token Endpoint
+        //Refresh Token Endpoint
         [HttpPost("refresh")]
         public IActionResult Refresh([FromBody] RefreshRequestDto refreshRequest)
         {
@@ -131,7 +131,7 @@ namespace AttendanceTracker1.Controllers
             return Ok(new { accessToken = newAccessToken });
         }
 
-        // 🔹 Generate JWT Token
+        //Generate JWT Token
         private string GenerateJwtToken(User user)
         {
             var jwtSettings = _config.GetSection("JwtSettings");
@@ -149,14 +149,14 @@ namespace AttendanceTracker1.Controllers
                 issuer: jwtSettings["Issuer"],
                 audience: jwtSettings["Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(int.Parse(jwtSettings["ExpiryMinutes"])), // Short-lived JWT
+                expires: DateTime.UtcNow.AddMinutes(int.Parse(jwtSettings["ExpiryMinutes"])), 
                 signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // 🔹 Generate Refresh Token
+        //Generate Refresh Token
         private string GenerateRefreshToken()
         {
             var randomNumber = new byte[32];
