@@ -68,16 +68,13 @@ namespace AttendanceTracker1.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // 🔹 Find user by email
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
             if (user == null || !user.VerifyPassword(model.Password))
                 return Unauthorized(new { message = "Invalid credentials" });
 
-            // 🔥 Generate Tokens
             var accessToken = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
 
-            // 🔥 Store refresh token in memory (Can store in DB)
             refreshTokens[user.Id.ToString()] = refreshToken;
 
             return Ok(new
@@ -116,15 +113,25 @@ namespace AttendanceTracker1.Controllers
         public IActionResult Refresh([FromBody] RefreshRequestDto refreshRequest)
         {
             var principal = GetPrincipalFromExpiredToken(refreshRequest.AccessToken);
-            if (principal == null) return Unauthorized(new { message = "Invalid token" });
+            if (principal == null)
+            {
+                return Unauthorized(new { message = "Invalid token" });
+            }
 
             var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null || !refreshTokens.ContainsKey(userId) || refreshTokens[userId] != refreshRequest.RefreshToken)
+            if (userId == null 
+                || !refreshTokens.ContainsKey(userId) 
+                || refreshTokens[userId] != refreshRequest.RefreshToken)
             {
                 return Unauthorized(new { message = "Invalid refresh token" });
             }
 
-            var user = _context.Users.Find(userId);
+            if (!int.TryParse(userId, out int userIdInt))
+            {
+                return Unauthorized(new { message = "Invalid user ID format" });
+            }
+
+            var user = _context.Users.Find(userIdInt);
             if (user == null) return Unauthorized(new { message = "User not found" });
 
             var newAccessToken = GenerateJwtToken(user);

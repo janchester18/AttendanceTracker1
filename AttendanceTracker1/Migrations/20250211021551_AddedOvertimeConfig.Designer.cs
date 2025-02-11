@@ -4,6 +4,7 @@ using AttendanceTracker1.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AttendanceTracker1.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250211021551_AddedOvertimeConfig")]
+    partial class AddedOvertimeConfig
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -115,52 +118,6 @@ namespace AttendanceTracker1.Migrations
                     b.ToTable("Leaves");
                 });
 
-            modelBuilder.Entity("AttendanceTracker1.Models.Overtime", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("time");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int?>("ReviewedBy")
-                        .HasColumnType("int");
-
-                    b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("time");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ReviewedBy");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Overtimes");
-                });
-
             modelBuilder.Entity("AttendanceTracker1.Models.OvertimeConfig", b =>
                 {
                     b.Property<int>("Id")
@@ -171,12 +128,6 @@ namespace AttendanceTracker1.Migrations
 
                     b.Property<double>("BreaktimeMax")
                         .HasColumnType("float");
-
-                    b.Property<TimeSpan>("OfficeEndTime")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("OfficeStartTime")
-                        .HasColumnType("time");
 
                     b.Property<double>("OvertimeDailyMax")
                         .HasColumnType("float");
@@ -257,24 +208,6 @@ namespace AttendanceTracker1.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("AttendanceTracker1.Models.Overtime", b =>
-                {
-                    b.HasOne("AttendanceTracker1.Models.User", "Approver")
-                        .WithMany("OvertimeApprovals")
-                        .HasForeignKey("ReviewedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("AttendanceTracker1.Models.User", "User")
-                        .WithMany("OvertimeRequests")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Approver");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("AttendanceTracker1.Models.User", b =>
                 {
                     b.Navigation("Approvals");
@@ -282,10 +215,6 @@ namespace AttendanceTracker1.Migrations
                     b.Navigation("Attendances");
 
                     b.Navigation("Leaves");
-
-                    b.Navigation("OvertimeApprovals");
-
-                    b.Navigation("OvertimeRequests");
                 });
 #pragma warning restore 612, 618
         }

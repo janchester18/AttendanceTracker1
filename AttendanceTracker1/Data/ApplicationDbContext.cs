@@ -12,6 +12,8 @@ namespace AttendanceTracker1.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Leave> Leaves { get; set; }
+        public DbSet<OvertimeConfig> OvertimeConfigs { get; set; }
+        public DbSet<Overtime> Overtimes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,6 +36,19 @@ namespace AttendanceTracker1.Data
                 .HasForeignKey(l => l.ReviewedBy)
                 .OnDelete(DeleteBehavior.Restrict); // Prevents multiple cascade paths
 
+            // 🔹 Overtime Request Relationship
+            modelBuilder.Entity<Overtime>()
+                .HasOne(o => o.User)
+                .WithMany(u => u.OvertimeRequests)
+                .HasForeignKey(o => o.UserId)
+                .OnDelete(DeleteBehavior.Cascade); // Delete overtime records when a user is deleted
+
+            // 🔹 Overtime Approval Relationship
+            modelBuilder.Entity<Overtime>()
+                .HasOne(o => o.Approver)
+                .WithMany(u => u.OvertimeApprovals)
+                .HasForeignKey(o => o.ReviewedBy)
+                .OnDelete(DeleteBehavior.Restrict); // Prevent multiple cascade paths
 
             base.OnModelCreating(modelBuilder);
         }

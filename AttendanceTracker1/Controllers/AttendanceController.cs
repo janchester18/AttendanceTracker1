@@ -36,7 +36,9 @@ namespace AttendanceTracker1.Controllers
                     },
                     a.Date,          
                     a.ClockIn,       
-                    a.ClockOut,      
+                    a.ClockOut,
+                    a.BreakStart,
+                    a.BreakFinish,
                     a.FormattedWorkDuration,
                     a.Status,        
                     a.Remarks       
@@ -65,7 +67,9 @@ namespace AttendanceTracker1.Controllers
                 },
                 a.Date,          
                 a.ClockIn,     
-                a.ClockOut,      
+                a.ClockOut,
+                a.BreakStart,
+                a.BreakFinish,
                 a.FormattedWorkDuration,
                 a.Status,       
                 a.Remarks        
@@ -93,7 +97,9 @@ namespace AttendanceTracker1.Controllers
                 },
                 a.Date,          
                 a.ClockIn,       
-                a.ClockOut,      
+                a.ClockOut, 
+                a.BreakStart,
+                a.BreakFinish,
                 a.FormattedWorkDuration,
                 a.Status,       
                 a.Remarks       
@@ -237,6 +243,55 @@ namespace AttendanceTracker1.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Break has ended.", breakDuration = attendance.FormattedBreakDuration });
+        }
+
+        [HttpPut("{id}/edit-attendance")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> EditAttendanceRecord(int id, [FromBody] EditAttendanceRecordDto updatedAttendance)
+        {
+            var attendance = await _context.Attendances.FindAsync(id);
+
+            if(attendance == null)
+            {
+                return BadRequest("Attendance Record not Found");
+            }
+
+            attendance.ClockIn = updatedAttendance.ClockIn;
+            attendance.ClockOut = updatedAttendance.ClockOut;
+
+            if (updatedAttendance.BreakStart.HasValue)
+            {
+                attendance.BreakStart = updatedAttendance.BreakStart;
+            }
+
+            if (updatedAttendance.BreakFinish.HasValue)
+            {
+                attendance.BreakFinish = updatedAttendance.BreakFinish;
+            }
+
+            await _context.SaveChangesAsync();
+
+            var response = new Dictionary<string, object>
+            {
+                { "message", "Attendance Record updated successfully." },
+                { "newClockin", attendance.ClockIn },
+                { "newClockout", attendance.ClockOut }
+            };
+
+            if (updatedAttendance.BreakStart.HasValue)
+            {
+               response.Add("newBreakStart", attendance.BreakStart);
+            }
+
+            if (updatedAttendance.BreakFinish.HasValue)
+            {
+                response.Add("newBreakFinish", attendance.BreakFinish);
+            }
+
+            response.Add("totalWorkHours", attendance.FormattedBreakDuration);
+            response.Add("totalWorkHours", attendance.FormattedWorkDuration);
+
+            return Ok(response);
         }
     }
 }
