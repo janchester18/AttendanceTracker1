@@ -145,7 +145,7 @@ namespace AttendanceTracker1.Controllers
             });
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("{id}/review")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Review (int id, [FromBody] LeaveReviewDto request)
         {

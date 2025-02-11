@@ -35,7 +35,7 @@ namespace AttendanceTracker1.Models
         public virtual User? Approver { get; set; } // Approver of overtime request
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow; // Auto-set on create
+        public DateTime CreatedAt { get; set; } = DateTime.Now; // Auto-set on create
 
         public DateTime? UpdatedAt { get; set; } // Nullable, updated when modified
 
@@ -63,8 +63,8 @@ namespace AttendanceTracker1.Models
 
     public enum OvertimeRequestStatus
     {
-        Pending,
-        Approved,
-        Rejected
+        Pending = 1,
+        Approved = 2,
+        Rejected = 3
     }
 }
