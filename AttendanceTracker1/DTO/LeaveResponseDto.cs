@@ -15,6 +15,7 @@ namespace AttendanceTracker1.DTO
         public string? Reason { get; set; }
         public int? ReviewedBy { get; set; }
         public string? ApproverName { get; set; } // Avoids cyclic reference
+        public string? RejectionReason { get; set; }
         public DateTime? CreatedDate { get; set; }
     }
 }

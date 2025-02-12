@@ -10,5 +10,8 @@ namespace AttendanceTracker1.DTO
 
         [Required]
         public int ReviewedBy { get; set; } // Admin ID
+        
+        [MaxLength(500)]
+        public string? RejectionReason { get; set; }
     }
 }

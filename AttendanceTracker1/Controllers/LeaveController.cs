@@ -39,6 +39,7 @@ namespace AttendanceTracker1.Controllers
                     Reason = l.Reason,
                     ReviewedBy = l.ReviewedBy,
                     ApproverName = l.Approver != null ? l.Approver.Name : null,
+                    RejectionReason = l.RejectionReason,
                     CreatedDate = l.CreatedDate
                 })
                 .ToListAsync();
@@ -67,6 +68,7 @@ namespace AttendanceTracker1.Controllers
                     Reason = l.Reason,
                     ReviewedBy = l.ReviewedBy,
                     ApproverName = l.Approver != null ? l.Approver.Name : null,
+                    RejectionReason = l.RejectionReason,
                     CreatedDate = l.CreatedDate
                 })
                 .FirstOrDefaultAsync();
@@ -101,6 +103,7 @@ namespace AttendanceTracker1.Controllers
                     Reason = l.Reason,
                     ReviewedBy = l.ReviewedBy,
                     ApproverName = l.Approver != null ? l.Approver.Name : null,
+                    RejectionReason = l.RejectionReason,
                     CreatedDate = l.CreatedDate
                 })
                 .ToListAsync();
@@ -161,8 +164,16 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest("Invalid leave status.");
             }
 
+            // Check if RejectionReason is provided when status is Rejected
+            if (request.Status == LeaveStatus.Rejected &&
+                string.IsNullOrWhiteSpace(request.RejectionReason))
+            {
+                return BadRequest("Rejection reason is required when status is Rejected.");
+            }
+
             leave.Status = request.Status;
             leave.ReviewedBy = request?.ReviewedBy;
+            leave.RejectionReason = request?.RejectionReason;
 
             await _context.SaveChangesAsync();
 

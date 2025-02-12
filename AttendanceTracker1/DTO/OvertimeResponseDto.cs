@@ -12,5 +12,9 @@
         public string Status { get; set; }
         public int? ReviewedBy { get; set; }
         public string? ApproverName { get; set; } // From Approver (if exists)
+        public string? RejectionReason { get; set; }
+        public DateTime CreatedAt { get; set; }
+
+        public DateTime? UpdatedAt { get; set; }
     }
 }

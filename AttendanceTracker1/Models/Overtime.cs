@@ -33,6 +33,8 @@ namespace AttendanceTracker1.Models
 
         [ForeignKey("ReviewedBy")]
         public virtual User? Approver { get; set; } // Approver of overtime request
+        [MaxLength(500)]
+        public string? RejectionReason { get; set; }
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now; // Auto-set on create

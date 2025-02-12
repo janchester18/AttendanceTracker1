@@ -36,7 +36,10 @@ namespace AttendanceTracker1.Controllers
                     Reason = o.Reason,
                     Status = o.Status.ToString(),
                     ReviewedBy = o.ReviewedBy,
-                    ApproverName = o.Approver != null ? o.Approver.Name : null
+                    ApproverName = o.Approver != null ? o.Approver.Name : null,
+                    RejectionReason = o.RejectionReason,
+                    CreatedAt = o.CreatedAt,   
+                    UpdatedAt = o.UpdatedAt
                 })
                 .ToListAsync();
 
@@ -62,7 +65,10 @@ namespace AttendanceTracker1.Controllers
                     Reason = o.Reason,
                     Status = o.Status.ToString(),
                     ReviewedBy = o.ReviewedBy,
-                    ApproverName = o.Approver != null ? o.Approver.Name : null
+                    ApproverName = o.Approver != null ? o.Approver.Name : null,
+                    RejectionReason = o.RejectionReason,
+                    CreatedAt = o.CreatedAt,
+                    UpdatedAt = o.UpdatedAt
                 })
                 .FirstOrDefaultAsync();
 
@@ -93,7 +99,10 @@ namespace AttendanceTracker1.Controllers
                     Reason = o.Reason,
                     Status = o.Status.ToString(),
                     ReviewedBy = o.ReviewedBy,
-                    ApproverName = o.Approver != null ? o.Approver.Name : null
+                    ApproverName = o.Approver != null ? o.Approver.Name : null,
+                    RejectionReason = o.RejectionReason,
+                    CreatedAt = o.CreatedAt,
+                    UpdatedAt = o.UpdatedAt
                 })
                 .ToListAsync();
 
@@ -155,8 +164,16 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest("Invalid leave status.");
             }
 
+            // Check if RejectionReason is provided when status is Rejected
+            if (request.Status == OvertimeRequestStatus.Rejected &&
+                string.IsNullOrWhiteSpace(request.RejectionReason))
+            {
+                return BadRequest("Rejection reason is required when status is Rejected.");
+            }
+
             overtime.Status = request.Status;
             overtime.ReviewedBy = request.ReviewedBy;
+            overtime.RejectionReason = request.RejectionReason;
 
             await _context.SaveChangesAsync();
 

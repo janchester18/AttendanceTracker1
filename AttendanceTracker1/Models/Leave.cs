@@ -27,7 +27,9 @@ namespace AttendanceTracker1.Models
 
         [ForeignKey("ReviewedBy")]
         public virtual User? Approver { get; set; }
-        [Required]
+
+        [MaxLength(500)]
+        public string? RejectionReason { get; set; }
         public DateTime? CreatedDate { get; set; } = DateTime.Now;
     }
 
@@ -43,8 +45,8 @@ namespace AttendanceTracker1.Models
 
     public enum LeaveStatus
     {
-        Pending,
-        Approved,
-        Rejected
+        Pending = 1,
+        Approved = 2,
+        Rejected = 3
     }
 }
