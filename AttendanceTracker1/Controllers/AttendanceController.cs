@@ -45,7 +45,7 @@ namespace AttendanceTracker1.Controllers
                 })
                 .ToListAsync();
 
-
+             
             return Ok(attendances);
         }
 

@@ -20,8 +20,6 @@ namespace AttendanceTracker1.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _config;
 
-        private static Dictionary<string, string> refreshTokens = new();
-
         public AuthController(ApplicationDbContext context, IConfiguration config)
         {
             _context = context;
@@ -75,7 +73,8 @@ namespace AttendanceTracker1.Controllers
             var accessToken = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
 
-            refreshTokens[user.Id.ToString()] = refreshToken;
+            // Save the refresh token in an HttpOnly secure cookie
+            SetRefreshTokenCookie(refreshToken);
 
             return Ok(new
             {
@@ -93,22 +92,13 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpPost("logout")]
-        public IActionResult Logout([FromBody] LogoutRequest logoutRequest)
+        public IActionResult Logout()
         {
-            var principal = GetPrincipalFromExpiredToken(logoutRequest.AccessToken);
-            if (principal == null)
-                return Unauthorized(new { message = "Invalid token" });
-
-            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null && refreshTokens.ContainsKey(userId))
-            {
-                refreshTokens.Remove(userId); 
-            }
+            Response.Cookies.Delete("refreshToken"); // Remove the refresh token cookie
 
             return Ok(new { message = "Logged out successfully" });
         }
 
-        //Refresh Token Endpoint
         [HttpPost("refresh")]
         public IActionResult Refresh([FromBody] RefreshRequestDto refreshRequest)
         {
@@ -119,11 +109,16 @@ namespace AttendanceTracker1.Controllers
             }
 
             var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null 
-                || !refreshTokens.ContainsKey(userId) 
-                || refreshTokens[userId] != refreshRequest.RefreshToken)
+            if (userId == null)
             {
-                return Unauthorized(new { message = "Invalid refresh token" });
+                return Unauthorized(new { message = "Invalid user ID" });
+            }
+
+            // Retrieve refresh token from the HttpOnly cookie
+            var refreshTokenFromCookie = Request.Cookies["refreshToken"];
+            if (string.IsNullOrEmpty(refreshTokenFromCookie))
+            {
+                return Unauthorized(new { message = "Refresh token missing" });
             }
 
             if (!int.TryParse(userId, out int userIdInt))
@@ -134,7 +129,9 @@ namespace AttendanceTracker1.Controllers
             var user = _context.Users.Find(userIdInt);
             if (user == null) return Unauthorized(new { message = "User not found" });
 
+            // Issue a new access token
             var newAccessToken = GenerateJwtToken(user);
+
             return Ok(new { accessToken = newAccessToken });
         }
 
@@ -196,6 +193,20 @@ namespace AttendanceTracker1.Controllers
             {
                 return null;
             }
+        }
+
+        // ✅ Store Refresh Token in HttpOnly Secure Cookie
+        private void SetRefreshTokenCookie(string refreshToken)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,  // Prevent JavaScript access (XSS protection)
+                Secure = true,    // Send only over HTTPS
+                SameSite = SameSiteMode.Strict, // Restrict cross-site requests
+                Expires = DateTime.UtcNow.AddDays(7) // Set expiry as needed
+            };
+
+            Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
         }
 
     }
