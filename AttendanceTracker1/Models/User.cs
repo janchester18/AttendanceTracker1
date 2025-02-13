@@ -27,6 +27,7 @@ namespace AttendanceTracker1.Models
 
         public DateTime Created { get; set; } = DateTime.Now;
         public DateTime Updated { get; set; }
+        public double AccumulatedOvertime { get; set; } = 0.0;
 
         public ICollection<Attendance>? Attendances { get; set; }
         public ICollection<Leave>? Leaves { get; set; }

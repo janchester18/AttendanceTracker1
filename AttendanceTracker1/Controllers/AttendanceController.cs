@@ -185,19 +185,89 @@ namespace AttendanceTracker1.Controllers
             if (attendance.ClockOut.HasValue)
                 return BadRequest("You have already clocked out.");
 
-            attendance.ClockOut = DateTime.Now;
+            if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
+            {
+                attendance.ClockOut = parsedClockOut;
+            }
+            else
+            {
+                return BadRequest("Invalid clock-out date format.");
+            }
+
             attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
             attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
+
+            // Fetch user and OvertimeConfig
+            var user = await _context.Users.FindAsync(attendance.UserId);
+            if (user == null)
+                return NotFound("User not found.");
+
+            var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
+            if (config == null)
+                return NotFound("Overtime configuration not found.");
+
+            // Compute total worked hours
+            TimeSpan breakDuration = TimeSpan.Zero;
+
+            if (attendance.BreakFinish.HasValue && attendance.BreakStart.HasValue)
+            {
+                DateTime breakStart = attendance.BreakFinish.Value; // Switch order
+                DateTime breakEnd = attendance.BreakStart.Value; // Switch order
+
+                // Validate that break time is within the shift
+                if (breakStart >= attendance.ClockIn && breakEnd <= attendance.ClockOut)
+                {
+                    breakDuration = breakEnd - breakStart;
+                }
+            }
+
+            TimeSpan totalWorkDuration = (attendance.ClockOut.Value - attendance.ClockIn) - breakDuration;
+            double totalWorkHours = totalWorkDuration.TotalHours;
+
+            // Compute regular work hours
+            double breakTimeHours = config.BreaktimeMax / 60.0; // Convert minutes to hours
+            double regularWorkHours = (config.OfficeEndTime - config.OfficeStartTime).TotalHours - breakTimeHours;
+
+            // Check for approved overtime request
+            var approvedOvertime = await _context.Overtimes
+                .Where(o => o.UserId == user.Id
+                    && o.Date.Date == attendance.ClockIn.Date
+                    && o.Status == OvertimeRequestStatus.Approved)
+                .FirstOrDefaultAsync();
+
+            double overtimeHours = 0;
+
+            if (totalWorkHours > regularWorkHours && approvedOvertime != null)
+            {
+                // Calculate the approved overtime duration
+                double approvedOvertimeDuration = (approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours;
+
+                // Compute the actual overtime worked (total work hours - regular work hours)
+                double actualOvertimeWorked = totalWorkHours - regularWorkHours;
+
+                // The overtime to be added is the MINIMUM of:
+                // - The actual overtime worked
+                // - The approved overtime duration
+                // - The max allowed daily overtime
+                overtimeHours = Math.Min(actualOvertimeWorked, Math.Min(approvedOvertimeDuration, config.OvertimeDailyMax));
+
+                // Add to user's accumulated overtime
+                user.AccumulatedOvertime += overtimeHours;
+            }
 
             await _context.SaveChangesAsync();
 
             return Ok(new
             {
                 message = "Clock-out successfully.",
-                totalWorkHours = attendance.FormattedWorkDuration,
-                clockoutLatitude = clockOutDto.ClockOutLatitude,
-                clockoutLongitude = clockOutDto.ClockOutLongitude
+                totalWorkHours = $"{totalWorkHours:F2}h",
+                approvedOvertime = approvedOvertime != null,
+                approvedOvertimeDuration = approvedOvertime != null ? $"{approvedOvertime.EndTime.Subtract(approvedOvertime.StartTime).TotalHours:F2}h" : "0h",
+                actualOvertimeWorked = $"{(totalWorkHours - regularWorkHours):F2}h",
+                overtimeAdded = $"{overtimeHours:F2}h",
+                newAccumulatedOvertime = $"{Math.Floor(user.AccumulatedOvertime)}h {Math.Round((user.AccumulatedOvertime % 1) * 60)}m"
             });
+
         }
 
         [HttpPut("{id}/start-break")]
