@@ -94,7 +94,7 @@ namespace AttendanceTracker1.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            Response.Cookies.Delete("refreshToken"); // Remove the refresh token cookie
+            Response.Cookies.Delete("refreshToken");
 
             return Ok(new { message = "Logged out successfully" });
         }
