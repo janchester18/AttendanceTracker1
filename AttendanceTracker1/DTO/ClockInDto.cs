@@ -21,9 +21,8 @@ namespace AttendanceTracker1.DTO
         [JsonPropertyName("clockOut")]
         public string? ClockOut { get; set; }
 
-        [Required]
         [JsonPropertyName("status")]
-        public int Status { get; set; }
+        public int? Status { get; set; }
 
         [StringLength(255)]
         [JsonPropertyName("remarks")]
@@ -35,5 +34,8 @@ namespace AttendanceTracker1.DTO
 
         [JsonPropertyName("clockInLongitude")]
         public double? ClockInLongitude { get; set; }
+
+        [JsonPropertyName("lateDuration")]
+        public double LateDuration { get; set; } = 0.0;
     }
 }

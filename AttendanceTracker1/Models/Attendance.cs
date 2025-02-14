@@ -64,6 +64,11 @@ namespace AttendanceTracker1.Models
 
         public string? Remarks { get; set; }  // Optional comments
 
+        public double LateDuration { get; set; } = 0.0;
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime? UpdatedAt { get; set; }
+
         /// <summary>
         /// Returns a formatted string representation of the work duration.
         /// </summary>

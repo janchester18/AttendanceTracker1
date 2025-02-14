@@ -144,33 +144,49 @@ namespace AttendanceTracker1.Controllers
             }
 
             
-            if (!Enum.IsDefined(typeof(AttendanceStatus), clockInDto.Status))
-            {
-                return BadRequest(new { error = "Invalid status value." });
-            }
-            AttendanceStatus status = (AttendanceStatus)clockInDto.Status;
-
-            
             var attendance = new Attendance
             {
                 UserId = clockInDto.UserId,
                 Date = today,
                 ClockIn = DateTime.Now,
                 ClockOut = parsedClockOut,
-                Status = status,
+                Status = AttendanceStatus.Present,
                 Remarks = clockInDto.Remarks,
                 ClockInLatitude = clockInDto.ClockInLatitude,
-                ClockInLongitude = clockInDto.ClockInLongitude
+                ClockInLongitude = clockInDto.ClockInLongitude,
             };
+
+            var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
+            var officeStartTime = config.OfficeStartTime;
+            var clockInTime = attendance.ClockIn.TimeOfDay;
+
+            string message = "Clock-in recorded successfully.";
+
+            if (officeStartTime < clockInTime)
+            {
+                attendance.Status = AttendanceStatus.Late;
+
+                // Calculate late duration as double
+                double lateDurationInHours = (clockInTime - officeStartTime).TotalHours;
+
+                // Extract hours and minutes using rounding
+                int lateHours = (int)Math.Floor(lateDurationInHours); // Whole hours
+                int lateMinutes = (int)Math.Round((lateDurationInHours - lateHours) * 60); // Remaining minutes
+
+                attendance.LateDuration = lateDurationInHours;
+
+                message = $"Clock-in recorded successfully. However, you are late by {lateHours}h {lateMinutes}m.";
+            }
 
             _context.Attendances.Add(attendance);
             await _context.SaveChangesAsync();
 
             return Ok(new 
-            { message = "Clock-in recorded successfully.", 
-                attendanceId = attendance.Id, 
-                clockinLatitude = attendance.ClockInLatitude, 
-                clockinLongitude = attendance.ClockInLongitude 
+            {
+                message,
+                attendanceId = attendance.Id,
+                clockinLatitude = attendance.ClockInLatitude,
+                clockinLongitude = attendance.ClockInLongitude
             });
         }
 
@@ -245,10 +261,6 @@ namespace AttendanceTracker1.Controllers
                 // Compute the actual overtime worked (total work hours - regular work hours)
                 double actualOvertimeWorked = totalWorkHours - regularWorkHours;
 
-                // The overtime to be added is the MINIMUM of:
-                // - The actual overtime worked
-                // - The approved overtime duration
-                // - The max allowed daily overtime
                 overtimeHours = Math.Min(actualOvertimeWorked, Math.Min(approvedOvertimeDuration, config.OvertimeDailyMax));
 
                 // Add to user's accumulated overtime
