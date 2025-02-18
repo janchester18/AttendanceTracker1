@@ -23,7 +23,6 @@ namespace AttendanceTracker1.Models
         public TimeSpan EndTime { get; set; } // Overtime End Time
 
         [Required]
-        [MaxLength(500)]
         public string Reason { get; set; } // Justification for Overtime
 
         [Required]
@@ -33,7 +32,7 @@ namespace AttendanceTracker1.Models
 
         [ForeignKey("ReviewedBy")]
         public virtual User? Approver { get; set; } // Approver of overtime request
-        [MaxLength(500)]
+
         public string? RejectionReason { get; set; }
 
         [Required]

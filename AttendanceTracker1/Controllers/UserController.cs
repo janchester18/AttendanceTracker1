@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AttendanceTracker1.Data;
+using AttendanceTracker1.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceTracker1.Controllers
 {
@@ -8,6 +11,14 @@ namespace AttendanceTracker1.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
+        private readonly ApplicationDbContext _context;
+
+        public UserController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+
         [HttpGet("admin")]
         [Authorize(Roles = "Admin")] // 🔹 Only Admins can access this
         public IActionResult GetAdminData()
@@ -24,9 +35,23 @@ namespace AttendanceTracker1.Controllers
 
         [HttpGet("all")]
         [Authorize] // 🔹 Any authenticated user (Admin or Employee) can access
-        public IActionResult GetAllUsers()
+        public async Task<IActionResult> GetAllUsers()
         {
-            return Ok(new { message = "This route is accessible to all authenticated users." });
+            var users = await _context.Users
+                .Select(u => new UserListDto
+                {
+                    Id = u.Id,
+                    Name = u.Name,
+                    Email = u.Email,
+                    Phone = u.Phone,
+                    Role = u.Role,
+                    Created = u.Created,
+                    Updated = u.Updated,
+                    AccumulatedOvertime = u.AccumulatedOvertime
+                })
+                .ToListAsync();
+
+            return Ok(users);
         }
     }
 }

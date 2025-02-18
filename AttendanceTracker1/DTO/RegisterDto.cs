@@ -16,8 +16,7 @@ namespace AttendanceTracker1.DTO
         [Required, MinLength(6, ErrorMessage = "Password must be at least 6 characters long.")]
         public required string Password { get; set; }
 
-        [Required]
         [RegularExpression("^(Admin|Employee)$", ErrorMessage = "Role must be either 'Admin' or 'Employee'.")]
-        public required string Role { get; set; } // Only allows "Admin" or "Employee"
+        public string? Role { get; set; } // Only allows "Admin" or "Employee"
     }
 }

@@ -18,10 +18,9 @@ namespace AttendanceTracker1.Models
         [NotMapped]
         public int DaysCount => (EndDate - StartDate).Days + 1;
         [Required]
-        public LeaveStatus Status { get; set; }
+        public LeaveStatus Status { get; set; } = LeaveStatus.Pending;
         [Required]
         public LeaveType Type { get; set; }
-        [MaxLength(500)]
         public string? Reason { get; set; }
         public int? ReviewedBy { get; set; } 
 

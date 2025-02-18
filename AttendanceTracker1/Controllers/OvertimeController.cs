@@ -1,4 +1,6 @@
-﻿using AttendanceTracker1.Data;
+﻿using System.Security.Claims;
+using System.Text.RegularExpressions;
+using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -20,11 +22,19 @@ namespace AttendanceTracker1.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetOvertimeRequests ()
+        public async Task<IActionResult> GetOvertimeRequests(int page = 1, int pageSize = 10)
         {
+            var skip = (page - 1) * pageSize;
+
+            var totalRecords = await _context.Overtimes.CountAsync();
+
+            // Fetch the overtime requests with pagination
             var overtimes = await _context.Overtimes
                 .Include(o => o.User)
                 .Include(o => o.Approver)
+                .OrderBy(o => o.CreatedAt) // Stable ordering
+                .Skip(skip) // Skip the records for the previous pages
+                .Take(pageSize) // Limit the number of records to the page size
                 .Select(o => new OvertimeResponseDto
                 {
                     Id = o.Id,
@@ -38,13 +48,27 @@ namespace AttendanceTracker1.Controllers
                     ReviewedBy = o.ReviewedBy,
                     ApproverName = o.Approver != null ? o.Approver.Name : null,
                     RejectionReason = o.RejectionReason,
-                    CreatedAt = o.CreatedAt,   
+                    CreatedAt = o.CreatedAt,
                     UpdatedAt = o.UpdatedAt
                 })
                 .ToListAsync();
 
-            return Ok(overtimes);
+            // Calculate total pages
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            // Return the paginated results along with metadata
+            return Ok(new
+            {
+                data = overtimes,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            });
         }
+
 
         [HttpGet("{id}")]
         [Authorize]
@@ -80,12 +104,12 @@ namespace AttendanceTracker1.Controllers
             return Ok(overtime);
         }
 
-        [HttpGet("userId")]
+        [HttpGet("user/{id}")]
         [Authorize]
-        public async Task<IActionResult> GetOvertimeRequestByUserId(int userId)
+        public async Task<IActionResult> GetOvertimeRequestByUserId(int id)
         {
             var overtime = await _context.Overtimes
-                .Where(o => o.UserId == userId)
+                .Where(o => o.UserId == id)
                 .Include(o => o.User)
                 .Include(o => o.Approver)
                 .Select(o => new OvertimeResponseDto
@@ -123,16 +147,19 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest("Start time must be before end time.");
             }
 
-            var userExists = await _context.Users.AnyAsync(u => u.Id == overtimeRequest.UserId);
-            if (!userExists)
+            // Get the user ID from the JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
             {
-                return NotFound("User not found.");
+                return Unauthorized("Invalid token.");
             }
+
+            var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
 
             // 🔹 Create Overtime Request
             var overtime = new Overtime
             {
-                UserId = overtimeRequest.UserId,
+                UserId = userId,
                 Date = overtimeRequest.Date,
                 StartTime = overtimeRequest.StartTime,
                 EndTime = overtimeRequest.EndTime,
@@ -171,8 +198,17 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest("Rejection reason is required when status is Rejected.");
             }
 
+            // Get the user ID from the JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
+
             overtime.Status = request.Status;
-            overtime.ReviewedBy = request.ReviewedBy;
+            overtime.ReviewedBy = userId;
             overtime.RejectionReason = request.RejectionReason;
 
             await _context.SaveChangesAsync();

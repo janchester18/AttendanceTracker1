@@ -26,7 +26,7 @@ namespace AttendanceTracker1.Controllers
             _config = config;
         }
 
-        [HttpPost("register")]
+        [HttpPost("add-user")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
         {
             if (!ModelState.IsValid)
@@ -46,7 +46,7 @@ namespace AttendanceTracker1.Controllers
                 Name = model.Name,
                 Email = model.Email,
                 Phone = model.Phone,
-                Role = model.Role,
+                Role = model.Role ?? "Employee",
                 Created = DateTime.Now,
                 Updated = DateTime.Now
             };
@@ -81,13 +81,6 @@ namespace AttendanceTracker1.Controllers
                 message = "Login successful",
                 accessToken,
                 refreshToken,
-                user = new
-                {
-                    user.Id,
-                    user.Name,
-                    user.Email,
-                    user.Role
-                }
             });
         }
 

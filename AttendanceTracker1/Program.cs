@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using AttendanceTracker1.Data;
+using AttendanceTracker1.Filters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -17,7 +18,11 @@ builder.Services.AddCors(options =>
 });
 
 // 🔹 Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<GlobalSqlInjectionValidationFilter>();
+});
+
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 

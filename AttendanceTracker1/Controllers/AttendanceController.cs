@@ -1,8 +1,10 @@
-﻿using AttendanceTracker1.Data;
+﻿using System.Security.Claims;
+using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,10 +23,17 @@ namespace AttendanceTracker1.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAttendances()
+        public async Task<IActionResult> GetAttendances(int page = 1, int pageSize = 10)
         {
+            var skip = (page - 1) * pageSize;
+
+            var totalRecords = await _context.Attendances.CountAsync();
+
             var attendances = await _context.Attendances
             .Include(a => a.User)
+            .OrderBy(a => a.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
             .Select(a => new
                 {
                     a.Id, // Attendance ID
@@ -40,21 +49,31 @@ namespace AttendanceTracker1.Controllers
                     a.BreakStart,
                     a.BreakFinish,
                     a.FormattedWorkDuration,
-                    a.Status,        
+                    Status = a.Status.ToString(),        
                     a.Remarks       
                 })
                 .ToListAsync();
 
-             
-            return Ok(attendances);
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            return Ok(new
+            {
+                data = attendances,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            });
         }
 
-        [HttpGet("userId")]
+        [HttpGet("user/{id}")]
         [Authorize]
-        public async Task<IActionResult> GetAttendanceByUser(int userId)
+        public async Task<IActionResult> GetAttendanceByUser(int id)
         {
             var attendance = await _context.Attendances
-            .Where(a => a.UserId == userId)
+            .Where(a => a.UserId == id)
             .Include(a => a.User)
             .Select(a => new
             {
@@ -71,7 +90,7 @@ namespace AttendanceTracker1.Controllers
                 a.BreakStart,
                 a.BreakFinish,
                 a.FormattedWorkDuration,
-                a.Status,       
+                Status = a.Status.ToString(),       
                 a.Remarks        
             })
                 .ToListAsync();
@@ -101,7 +120,7 @@ namespace AttendanceTracker1.Controllers
                 a.BreakStart,
                 a.BreakFinish,
                 a.FormattedWorkDuration,
-                a.Status,       
+                Status = a.Status.ToString(),
                 a.Remarks       
             })
             .FirstOrDefaultAsync();
@@ -123,19 +142,25 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest(ModelState);
             }
 
-        
+            // Get the user ID from the JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
+
             var today = DateTime.Now.Date;
 
-           
             var existingAttendance = await _context.Attendances
-                .FirstOrDefaultAsync(a => a.UserId == clockInDto.UserId && a.Date == today);
+                .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == today);
 
             if (existingAttendance != null && existingAttendance.ClockIn != default(DateTime))
             {
                 return BadRequest("You have already clocked in today.");
             }
 
-      
             DateTime? parsedClockOut = null;
             if (!string.IsNullOrEmpty(clockInDto.ClockOut) &&
                 DateTime.TryParse(clockInDto.ClockOut, out DateTime tempClockOut))
@@ -143,10 +168,9 @@ namespace AttendanceTracker1.Controllers
                 parsedClockOut = tempClockOut;
             }
 
-            
             var attendance = new Attendance
             {
-                UserId = clockInDto.UserId,
+                UserId = userId,
                 Date = today,
                 ClockIn = DateTime.Now,
                 ClockOut = parsedClockOut,
@@ -166,22 +190,18 @@ namespace AttendanceTracker1.Controllers
             {
                 attendance.Status = AttendanceStatus.Late;
 
-                // Calculate late duration as double
                 double lateDurationInHours = (clockInTime - officeStartTime).TotalHours;
-
-                // Extract hours and minutes using rounding
-                int lateHours = (int)Math.Floor(lateDurationInHours); // Whole hours
-                int lateMinutes = (int)Math.Round((lateDurationInHours - lateHours) * 60); // Remaining minutes
+                int lateHours = (int)Math.Floor(lateDurationInHours);
+                int lateMinutes = (int)Math.Round((lateDurationInHours - lateHours) * 60);
 
                 attendance.LateDuration = lateDurationInHours;
-
                 message = $"Clock-in recorded successfully. However, you are late by {lateHours}h {lateMinutes}m.";
             }
 
             _context.Attendances.Add(attendance);
             await _context.SaveChangesAsync();
 
-            return Ok(new 
+            return Ok(new
             {
                 message,
                 attendanceId = attendance.Id,
@@ -190,30 +210,32 @@ namespace AttendanceTracker1.Controllers
             });
         }
 
-        [HttpPut("{id}/clockout")]
+        [HttpPut("clockout")]
         [Authorize]
-        public async Task<IActionResult> ClockOut(int id, [FromBody] ClockOutDto clockOutDto)
+        public async Task<IActionResult> ClockOut([FromBody] ClockOutDto clockOutDto)
         {
-            var attendance = await _context.Attendances.FindAsync(id);
+            // Extract UserId from the JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            int userId = int.Parse(userIdClaim);
+
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
+
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
             if (attendance.ClockOut.HasValue)
                 return BadRequest("You have already clocked out.");
 
-            if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
-            {
-                attendance.ClockOut = parsedClockOut;
-            }
-            else
-            {
-                return BadRequest("Invalid clock-out date format.");
-            }
-
+            attendance.ClockOut = DateTime.Now;
             attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
             attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
-            // Fetch user and OvertimeConfig
             var user = await _context.Users.FindAsync(attendance.UserId);
             if (user == null)
                 return NotFound("User not found.");
@@ -222,15 +244,13 @@ namespace AttendanceTracker1.Controllers
             if (config == null)
                 return NotFound("Overtime configuration not found.");
 
-            // Compute total worked hours
             TimeSpan breakDuration = TimeSpan.Zero;
 
             if (attendance.BreakFinish.HasValue && attendance.BreakStart.HasValue)
             {
-                DateTime breakStart = attendance.BreakFinish.Value; // Switch order
-                DateTime breakEnd = attendance.BreakStart.Value; // Switch order
+                DateTime breakStart = attendance.BreakFinish.Value;
+                DateTime breakEnd = attendance.BreakStart.Value;
 
-                // Validate that break time is within the shift
                 if (breakStart >= attendance.ClockIn && breakEnd <= attendance.ClockOut)
                 {
                     breakDuration = breakEnd - breakStart;
@@ -239,12 +259,12 @@ namespace AttendanceTracker1.Controllers
 
             TimeSpan totalWorkDuration = (attendance.ClockOut.Value - attendance.ClockIn) - breakDuration;
             double totalWorkHours = totalWorkDuration.TotalHours;
+            int totalWorkHoursInt = (int)totalWorkDuration.TotalHours;
+            int totalWorkMinutes = (int)(totalWorkDuration.TotalMinutes % 60);
 
-            // Compute regular work hours
-            double breakTimeHours = config.BreaktimeMax / 60.0; // Convert minutes to hours
+            double breakTimeHours = config.BreaktimeMax / 60.0;
             double regularWorkHours = (config.OfficeEndTime - config.OfficeStartTime).TotalHours - breakTimeHours;
 
-            // Check for approved overtime request
             var approvedOvertime = await _context.Overtimes
                 .Where(o => o.UserId == user.Id
                     && o.Date.Date == attendance.ClockIn.Date
@@ -255,38 +275,49 @@ namespace AttendanceTracker1.Controllers
 
             if (totalWorkHours > regularWorkHours && approvedOvertime != null)
             {
-                // Calculate the approved overtime duration
                 double approvedOvertimeDuration = (approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours;
-
-                // Compute the actual overtime worked (total work hours - regular work hours)
                 double actualOvertimeWorked = totalWorkHours - regularWorkHours;
 
                 overtimeHours = Math.Min(actualOvertimeWorked, Math.Min(approvedOvertimeDuration, config.OvertimeDailyMax));
 
-                // Add to user's accumulated overtime
                 user.AccumulatedOvertime += overtimeHours;
             }
+
+            double lateDurationInHours = attendance.LateDuration;
+            int lateHours = (int)Math.Floor(lateDurationInHours);
+            int lateMinutes = (int)Math.Round((lateDurationInHours - lateHours) * 60);
 
             await _context.SaveChangesAsync();
 
             return Ok(new
             {
-                message = "Clock-out successfully.",
-                totalWorkHours = $"{totalWorkHours:F2}h",
+                message = "Clock-out recorded successfully.",
+                lateDuration = $"{lateHours}h {lateMinutes}m",
+                totalWorkHours = $"{totalWorkHoursInt}h {totalWorkMinutes}m",
                 approvedOvertime = approvedOvertime != null,
                 approvedOvertimeDuration = approvedOvertime != null ? $"{approvedOvertime.EndTime.Subtract(approvedOvertime.StartTime).TotalHours:F2}h" : "0h",
                 actualOvertimeWorked = $"{(totalWorkHours - regularWorkHours):F2}h",
                 overtimeAdded = $"{overtimeHours:F2}h",
                 newAccumulatedOvertime = $"{Math.Floor(user.AccumulatedOvertime)}h {Math.Round((user.AccumulatedOvertime % 1) * 60)}m"
             });
-
         }
 
-        [HttpPut("{id}/start-break")]
+        [HttpPut("start-break")]
         [Authorize]
-        public async Task<IActionResult> StartBreak(int id)
+        public async Task<IActionResult> StartBreak()
         {
-            var attendance = await _context.Attendances.FindAsync(id);
+            // Extract UserId from JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            int userId = int.Parse(userIdClaim);
+
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
+
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
@@ -302,32 +333,48 @@ namespace AttendanceTracker1.Controllers
             return Ok(new { message = "Break has started." });
         }
 
-        [HttpPut("{id}/end-break")]
+
+        [HttpPut("end-break")]
         [Authorize]
-        public async Task<IActionResult> EndBreak(int id)
+        public async Task<IActionResult> EndBreak()
         {
-            var attendance = await _context.Attendances.FindAsync(id);
+            // Extract UserId from JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            int userId = int.Parse(userIdClaim);
+
+            // Get today's attendance record for the user
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
+
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
             if (!attendance.BreakStart.HasValue)
                 return BadRequest("Cannot end break because break has not been started.");
 
-            // Check if the user has already clocked out
             if (attendance.ClockOut.HasValue)
                 return BadRequest("Cannot end break because you are already clocked out.");
 
-            // Optionally, check if the break has already ended to prevent multiple submissions.
             if (attendance.BreakFinish.HasValue)
                 return BadRequest("Break has already been ended.");
 
             attendance.BreakFinish = DateTime.Now;
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Break has ended.", breakDuration = attendance.FormattedBreakDuration });
+            return Ok(new
+            {
+                message = "Break has ended.",
+                breakDuration = attendance.FormattedBreakDuration // Ensure this property exists in your model
+            });
         }
 
-        [HttpPut("{id}/edit-attendance")]
+
+        [HttpPut("edit-attendance/{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> EditAttendanceRecord(int id, [FromBody] EditAttendanceRecordDto updatedAttendance)
         {

@@ -4,8 +4,8 @@ namespace AttendanceTracker1.DTO
 {
     public class OvertimeRequestDto
     {
-        [Required(ErrorMessage = "User ID is required.")]
-        public int UserId { get; set; }
+        
+        public int? UserId { get; set; }
 
         [Required(ErrorMessage = "Date is required.")]
         [DataType(DataType.Date)]

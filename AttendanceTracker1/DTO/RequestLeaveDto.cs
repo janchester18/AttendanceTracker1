@@ -22,9 +22,5 @@ namespace AttendanceTracker1.DTO
             [Required]
             [EnumDataType(typeof(LeaveType))]
             public LeaveType Type { get; set; } // Type of leave (e.g., Sick, Vacation, etc.)
-
-            public bool RequiresApproval { get; set; } = true; // Whether approval is needed
-
-            public int? ReviewedBy { get; set; } // Approver ID (can be null initially)
     }
 }

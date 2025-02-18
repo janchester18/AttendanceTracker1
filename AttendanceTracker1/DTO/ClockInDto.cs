@@ -5,9 +5,8 @@ namespace AttendanceTracker1.DTO
 {
     public class ClockInDto
     {
-        [Required]
         [JsonPropertyName("userId")]
-        public int UserId { get; set; }
+        public int? UserId { get; set; }
 
         [DataType(DataType.Date)]
         [JsonPropertyName("date")]

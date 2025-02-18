@@ -8,8 +8,7 @@ namespace AttendanceTracker1.DTO
         [Required]
         public LeaveStatus Status { get; set; } // Approved or Rejected
 
-        [Required]
-        public int ReviewedBy { get; set; } // Admin ID
+        public int? ReviewedBy { get; set; } // Admin ID
         [MaxLength(500)]
         public string? RejectionReason { get; set; }
     }

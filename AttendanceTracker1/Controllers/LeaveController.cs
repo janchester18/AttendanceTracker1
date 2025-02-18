@@ -1,4 +1,5 @@
-﻿using AttendanceTracker1.Data;
+﻿using System.Security.Claims;
+using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -21,11 +22,18 @@ namespace AttendanceTracker1.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetLeaveRequests()
+        public async Task<IActionResult> GetLeaveRequests(int page = 1, int pageSize = 10)
         {
+            var skip = (page - 1) * pageSize;
+
+            var totalRecords = await _context.Leaves.CountAsync();
+
             var leaves = await _context.Leaves
                 .Include(l => l.User)
                 .Include(l => l.Approver)
+                .OrderBy(l => l.CreatedDate) // Stable ordering
+                .Skip(skip) // Skip the records for the previous pages
+                .Take(pageSize) // Limit the number of records to the page size
                 .Select(l => new LeaveResponseDto
                 {
                     Id = l.Id,
@@ -44,7 +52,18 @@ namespace AttendanceTracker1.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(leaves);
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            return Ok(new
+            {
+                data = leaves,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            });
         }
 
         [HttpGet("{id}")]
@@ -76,18 +95,18 @@ namespace AttendanceTracker1.Controllers
             return Ok(leave);
         }
 
-        [HttpGet("userId")]
+        [HttpGet("user/{id}")]
         [Authorize]
-        public async Task<IActionResult> GetLeaveRequestByUserId(int userId)
+        public async Task<IActionResult> GetLeaveRequestByUserId(int id)
         {
-            var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+            var userExists = await _context.Users.AnyAsync(u => u.Id == id);
             if (!userExists)
             {
-                return NotFound($"User with ID {userId} not found.");
+                return NotFound($"User with ID {id} not found.");
             }
 
             var leave = await _context.Leaves
-                .Where(l => l.UserId == userId)
+                .Where(l => l.UserId == id)
                 .Include(l => l.User)
                 .Include(l => l.Approver)
                 .Select(l => new LeaveResponseDto
@@ -110,7 +129,7 @@ namespace AttendanceTracker1.Controllers
 
             if (!leave.Any())
             {
-                return NotFound($"User with ID {userId} has no leave requests.");
+                return NotFound($"User with ID {id} has no leave requests.");
             }
 
             return Ok(leave);
@@ -125,15 +144,22 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest(ModelState);
             }
 
+            // Get the user ID from the JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
+
             var leaveRequest = new Leave
             {
-                UserId = request.UserId,
+                UserId = userId,
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
                 Reason = request.Reason,
                 Type = request.Type,
-                Status = LeaveStatus.Pending, // Default to Pending until reviewed
-                ReviewedBy = request.RequiresApproval ? null : request.ReviewedBy, // Null if approval is required
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -148,7 +174,7 @@ namespace AttendanceTracker1.Controllers
             });
         }
 
-        [HttpPut("{id}/review")]
+        [HttpPut("review/{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Review (int id, [FromBody] LeaveReviewDto request)
         {
@@ -171,8 +197,17 @@ namespace AttendanceTracker1.Controllers
                 return BadRequest("Rejection reason is required when status is Rejected.");
             }
 
+            // Get the user ID from the JWT token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized("Invalid token.");
+            }
+
+            var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
+
             leave.Status = request.Status;
-            leave.ReviewedBy = request?.ReviewedBy;
+            leave.ReviewedBy = userId;
             leave.RejectionReason = request?.RejectionReason;
 
             await _context.SaveChangesAsync();

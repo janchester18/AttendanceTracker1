@@ -1,6 +1,10 @@
-@AttendanceTracker1_HostAddress = http://localhost:5249
+@AttendanceTracker1_HostAddress = https://localhost:7009
 
 GET {{AttendanceTracker1_HostAddress}}/weatherforecast/
 Accept: application/json
+
+###
+
+GET {{AttendanceTracker1_HostAddress}}/api/overtime
 
 ###
