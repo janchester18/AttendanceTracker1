@@ -185,6 +185,9 @@ namespace AttendanceTracker1.Controllers
 
                 var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
 
+                var user = await _context.Users.FindAsync(userId);
+                var username = user?.Name ?? "Unknown";
+
                 // 🔹 Create Overtime Request
                 var overtime = new Overtime
                 {
@@ -200,6 +203,10 @@ namespace AttendanceTracker1.Controllers
 
                 _context.Overtimes.Add(overtime);
                 await _context.SaveChangesAsync();
+
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Overtime")
+                    .Information("{UserName} has requested an overtime at {Time}", username, DateTime.Now);
 
                 return Ok(ApiResponse<object>.Success(new 
                     { Message = "Overtime request submitted successfully.", 
@@ -247,11 +254,20 @@ namespace AttendanceTracker1.Controllers
 
                 var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
 
+                var user = await _context.Users.FindAsync(userId);
+                var username = user?.Name ?? "Unknown";
+
                 overtime.Status = request.Status;
                 overtime.ReviewedBy = userId;
                 overtime.RejectionReason = overtime.RejectionReason;
 
                 await _context.SaveChangesAsync();
+
+                var action = overtime.Status.ToString();
+
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Overtime")
+                    .Information("{UserName} has {Action} overtime {Id} at {Time}", username, action, id, DateTime.Now);
 
                 return Ok(ApiResponse<object>.Success(new 
                     { message = $"Overtime request {id} has been {overtime.Status}." 
