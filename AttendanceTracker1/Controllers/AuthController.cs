@@ -5,6 +5,7 @@ using System.Text;
 using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -19,113 +20,210 @@ namespace AttendanceTracker1.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _config;
+        private readonly TokenBlacklistService _tokenBlacklistService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(ApplicationDbContext context, IConfiguration config)
+        public AuthController(ApplicationDbContext context, 
+            IConfiguration config, 
+            TokenBlacklistService tokenBlacklistService,
+            ILogger<AuthController> logger)
         {
             _context = context;
             _config = config;
+            _tokenBlacklistService = tokenBlacklistService;
+            _logger = logger;
         }
 
         [HttpPost("add-user")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
         {
-            if (!ModelState.IsValid)
+            try
             {
-                return BadRequest(ModelState);
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                if (existingUser != null)
+                {
+                    return BadRequest(new { message = "Email is already registered." });
+                }
+
+                var user = new User
+                {
+                    Id = 0,
+                    Name = model.Name,
+                    Email = model.Email,
+                    Phone = model.Phone,
+                    Role = model.Role ?? "Employee",
+                    Created = DateTime.Now,
+                    Updated = DateTime.Now
+                };
+
+                user.SetPassword(model.Password);
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                var username = user.Name;
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Authorization")
+                    .Information("{UserName} has been registered at {Time}", username, DateTime.Now);
+
+                return Ok(ApiResponse<object>.Success(new 
+                    { message = "User registered successfully." }
+                ));
             }
-
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
-            if (existingUser != null)
+            catch (Exception ex)
             {
-                return BadRequest(new { message = "Email is already registered." });
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
             }
-
-            var user = new User
-            {
-                Id = 0, 
-                Name = model.Name,
-                Email = model.Email,
-                Phone = model.Phone,
-                Role = model.Role ?? "Employee",
-                Created = DateTime.Now,
-                Updated = DateTime.Now
-            };
-
-            user.SetPassword(model.Password); 
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "User registered successfully." });
+            
         }
 
         //Login User
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
-            if (user == null || !user.VerifyPassword(model.Password))
-                return Unauthorized(new { message = "Invalid credentials" });
-
-            var accessToken = GenerateJwtToken(user);
-            var refreshToken = GenerateRefreshToken();
-
-            // Save the refresh token in an HttpOnly secure cookie
-            SetRefreshTokenCookie(refreshToken);
-
-            return Ok(new
+            try
             {
-                message = "Login successful",
-                accessToken,
-                refreshToken,
-            });
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                if (user == null || !user.VerifyPassword(model.Password))
+                    return Unauthorized(new { message = "Invalid credentials" }); //verify
+
+                var accessToken = GenerateJwtToken(user);
+                var refreshToken = GenerateRefreshToken();
+
+                // Save the refresh token in an HttpOnly secure cookie
+                SetRefreshTokenCookie(refreshToken);
+
+                var response = ApiResponse<object>.Success(new
+                {
+                    message = "Login successful",
+                    accessToken,
+                    refreshToken,
+                });
+
+                var username = user?.Name ?? "Unknown";
+
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Authorization")
+                    .Information("{UserName} has logged in at {Time}", username, DateTime.Now);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
+            }
+            
         }
 
         [HttpPost("logout")]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
-            Response.Cookies.Delete("refreshToken");
+            try
+            {
+                // Get the user ID from the JWT token
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return Unauthorized("Invalid token.");
+                }
 
-            return Ok(new { message = "Logged out successfully" });
+                var userId = int.Parse(userIdClaim);
+
+                // Retrieve the user from the database to get the username.
+                var user = await _context.Users.FindAsync(userId);
+                var username = user?.Name ?? "Unknown";
+
+                // Get JWT token from the Authorization header
+                string? token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+                    if (jwtToken != null)
+                    {
+                        var expiry = jwtToken.ValidTo;
+                        _tokenBlacklistService.AddToBlacklist(token, expiry); // Add token to blacklist
+                    }
+                }
+
+                Response.Cookies.Delete("refreshToken");
+
+                // not necessary but just to make sure when the frontend does not remove the token from the header, the backend will do it.
+                Response.Headers.Append("Clear-Token", "true");
+
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Authorization")
+                    .Information("{UserName} has logged out at {Time}", username, DateTime.Now);
+
+                return Ok(ApiResponse<object>.Success(new 
+                { 
+                    message = "Logged out successfully" 
+                }));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
+            }
         }
 
         [HttpPost("refresh")]
         public IActionResult Refresh([FromBody] RefreshRequestDto refreshRequest)
         {
-            var principal = GetPrincipalFromExpiredToken(refreshRequest.AccessToken);
-            if (principal == null)
+            try
             {
-                return Unauthorized(new { message = "Invalid token" });
-            }
+                var principal = GetPrincipalFromExpiredToken(refreshRequest.AccessToken);
+                if (principal == null)
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
 
-            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null)
+                var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                {
+                    return Unauthorized(new { message = "Invalid user ID" });
+                }
+
+                // Retrieve refresh token from the HttpOnly cookie
+                var refreshTokenFromCookie = Request.Cookies["refreshToken"];
+                if (string.IsNullOrEmpty(refreshTokenFromCookie))
+                {
+                    return Unauthorized(new { message = "Refresh token missing" });
+                }
+
+                if (!int.TryParse(userId, out int userIdInt))
+                {
+                    return Unauthorized(new { message = "Invalid user ID format" });
+                }
+
+                var user = _context.Users.Find(userIdInt);
+                if (user == null) return Unauthorized(new { message = "User not found" });
+
+                // Issue a new access token
+                var newAccessToken = GenerateJwtToken(user);
+
+                return Ok(ApiResponse<object>.Success(new 
+                    { accessToken = newAccessToken 
+                }));
+            }
+            catch (Exception ex)
             {
-                return Unauthorized(new { message = "Invalid user ID" });
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
             }
-
-            // Retrieve refresh token from the HttpOnly cookie
-            var refreshTokenFromCookie = Request.Cookies["refreshToken"];
-            if (string.IsNullOrEmpty(refreshTokenFromCookie))
-            {
-                return Unauthorized(new { message = "Refresh token missing" });
-            }
-
-            if (!int.TryParse(userId, out int userIdInt))
-            {
-                return Unauthorized(new { message = "Invalid user ID format" });
-            }
-
-            var user = _context.Users.Find(userIdInt);
-            if (user == null) return Unauthorized(new { message = "User not found" });
-
-            // Issue a new access token
-            var newAccessToken = GenerateJwtToken(user);
-
-            return Ok(new { accessToken = newAccessToken });
+            
         }
 
         //Generate JWT Token
@@ -139,7 +237,7 @@ namespace AttendanceTracker1.Controllers
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) //verify
             };
 
             var token = new JwtSecurityToken(

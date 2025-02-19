@@ -21,28 +21,45 @@ namespace AttendanceTracker1.Controllers
         [HttpGet]
         public async Task<IActionResult> GetOvertimeConfig()
         {
-            var config = await _context.OvertimeConfigs.ToListAsync();
+            try
+            {
+                var config = await _context.OvertimeConfigs.ToListAsync();
 
-            return Ok(config);
+                return Ok(ApiResponse<object>.Success(config));
+            }
+            catch(Exception ex)
+            {
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
+            }
+
         }
 
         [HttpPut]
         public async Task<IActionResult> UpdateConfig([FromBody] OvertimeConfig updatedConfig)
         {
-            var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-
-            if (config == null)
+            try
             {
-                return BadRequest("Overtime configuration not found.");
+                var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
+
+                if (config == null)
+                {
+                    return BadRequest("Overtime configuration not found.");
+                }
+
+                config.OvertimeDailyMax = updatedConfig.OvertimeDailyMax;
+                config.BreaktimeMax = updatedConfig.BreaktimeMax;
+                config.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(ApiResponse<object>.Success(config));
             }
-
-            config.OvertimeDailyMax = updatedConfig.OvertimeDailyMax;
-            config.BreaktimeMax = updatedConfig.BreaktimeMax;
-            config.UpdatedAt = DateTime.Now;
-
-            await _context.SaveChangesAsync();
-
-            return Ok(config);
+            catch (Exception ex)
+            {
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
+            }
         }
     }
 }

@@ -17,7 +17,9 @@ namespace AttendanceTracker1.DTO
             public DateTime EndDate { get; set; } // Leave end date
 
             [StringLength(500, ErrorMessage = "Reason should not exceed 500 characters.")]
-            public string? Reason { get; set; } // Reason for leave
+
+            [Required]
+            public string Reason { get; set; } // Reason for leave
 
             [Required]
             [EnumDataType(typeof(LeaveType))]

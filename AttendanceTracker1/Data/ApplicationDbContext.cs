@@ -14,6 +14,7 @@ namespace AttendanceTracker1.Data
         public DbSet<Leave> Leaves { get; set; }
         public DbSet<OvertimeConfig> OvertimeConfigs { get; set; }
         public DbSet<Overtime> Overtimes { get; set; }
+        public DbSet<Log> Logs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
