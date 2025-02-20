@@ -59,7 +59,7 @@ namespace AttendanceTracker1.Controllers
 
                 var response = ApiResponse<object>.Success(new
                 {
-                    data = leaves,
+                    leaves = leaves,
                     totalRecords,
                     totalPages,
                     currentPage = page,

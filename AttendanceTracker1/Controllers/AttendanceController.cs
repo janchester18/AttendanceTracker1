@@ -487,61 +487,50 @@ namespace AttendanceTracker1.Controllers
                 }
 
                 int adminId = int.Parse(adminIdClaim);
-
                 var admin = await _context.Users.FindAsync(adminId);
                 var adminName = admin?.Name ?? "Unknown";
 
                 var attendance = await _context.Attendances.FindAsync(id);
-
                 if (attendance == null)
                 {
                     return BadRequest("Attendance Record not Found");
                 }
 
-                // Parse required fields
-                if (!DateTime.TryParse(updatedAttendance.ClockIn, out DateTime clockInValue))
+                // ✅ Parse the ClockIn and ClockOut strings before updating
+                if (!string.IsNullOrWhiteSpace(updatedAttendance.ClockIn) && DateTime.TryParse(updatedAttendance.ClockIn, out DateTime clockInValue))
                 {
-                    return BadRequest("Invalid ClockIn value.");
-                }
-                if (!DateTime.TryParse(updatedAttendance.ClockOut, out DateTime clockOutValue))
-                {
-                    return BadRequest("Invalid ClockOut value.");
+                    attendance.ClockIn = clockInValue;
                 }
 
-                attendance.ClockIn = clockInValue;
-                attendance.ClockOut = clockOutValue;
-
-                if (updatedAttendance.BreakStart.HasValue)
+                if (!string.IsNullOrWhiteSpace(updatedAttendance.ClockOut) && DateTime.TryParse(updatedAttendance.ClockOut, out DateTime clockOutValue))
                 {
-                    attendance.BreakStart = updatedAttendance.BreakStart;
+                    attendance.ClockOut = clockOutValue;
                 }
 
-                if (updatedAttendance.BreakFinish.HasValue)
-                {
-                    attendance.BreakFinish = updatedAttendance.BreakFinish;
-                }
+                // ✅ Assign BreakStart and BreakFinish only if they are provided
+                attendance.BreakStart = updatedAttendance.BreakStart ?? attendance.BreakStart;
+                attendance.BreakFinish = updatedAttendance.BreakFinish ?? attendance.BreakFinish;
 
                 await _context.SaveChangesAsync();
 
+                // ✅ Dynamically build response
                 var response = new Dictionary<string, object>
-            {
-                { "message", "Attendance Record updated successfully." },
-                { "newClockin", attendance.ClockIn },
-                { "newClockout", attendance.ClockOut }
-            };
+        {
+            { "message", "Attendance Record updated successfully." },
+            { "totalBreakHours", attendance.FormattedBreakDuration },
+            { "totalWorkHours", attendance.FormattedWorkDuration }
+        };
 
-                if (updatedAttendance.BreakStart.HasValue)
-                {
-                    response.Add("newBreakStart", attendance.BreakStart);
-                }
-
-                if (updatedAttendance.BreakFinish.HasValue)
-                {
-                    response.Add("newBreakFinish", attendance.BreakFinish);
-                }
-
-                response.Add("totalBreakHours", attendance.FormattedBreakDuration);
-                response.Add("totalWorkHours", attendance.FormattedWorkDuration);
+                new Dictionary<string, DateTime?>
+        {
+            { "newClockIn", attendance.ClockIn },
+            { "newClockOut", attendance.ClockOut },
+            { "newBreakStart", attendance.BreakStart },
+            { "newBreakFinish", attendance.BreakFinish }
+        }
+                .Where(pair => pair.Value.HasValue)
+                .ToList()
+                .ForEach(pair => response.Add(pair.Key, pair.Value));
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Attendance")
@@ -551,10 +540,9 @@ namespace AttendanceTracker1.Controllers
             }
             catch (Exception ex)
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
-            
         }
+
     }
 }

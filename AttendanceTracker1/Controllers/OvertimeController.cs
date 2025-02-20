@@ -220,7 +220,7 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
-        [HttpPut("{id}/review")]
+        [HttpPut("review/{id}")]
         [Authorize]
         public async Task<IActionResult> Review(int id, [FromBody] OvertimeReview request)
         {
