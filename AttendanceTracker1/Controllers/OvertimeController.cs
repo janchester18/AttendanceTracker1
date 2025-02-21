@@ -259,7 +259,7 @@ namespace AttendanceTracker1.Controllers
 
                 overtime.Status = request.Status;
                 overtime.ReviewedBy = userId;
-                overtime.RejectionReason = overtime.RejectionReason;
+                overtime.RejectionReason = request.RejectionReason;
 
                 await _context.SaveChangesAsync();
 

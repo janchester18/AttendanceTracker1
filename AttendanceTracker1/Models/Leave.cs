@@ -26,8 +26,6 @@ namespace AttendanceTracker1.Models
 
         [ForeignKey("ReviewedBy")]
         public virtual User? Approver { get; set; }
-
-        [MaxLength(500)]
         public string? RejectionReason { get; set; }
         public DateTime? CreatedDate { get; set; } = DateTime.Now;
     }

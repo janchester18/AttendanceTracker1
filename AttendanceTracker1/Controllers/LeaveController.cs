@@ -255,7 +255,7 @@ namespace AttendanceTracker1.Controllers
 
                 leave.Status = request.Status;
                 leave.ReviewedBy = userId;
-                leave.RejectionReason = request?.RejectionReason;
+                leave.RejectionReason = request.RejectionReason;
 
                 await _context.SaveChangesAsync();
 
