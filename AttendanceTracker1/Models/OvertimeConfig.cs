@@ -4,6 +4,7 @@ namespace AttendanceTracker1.Models
 {
     public class OvertimeConfig
     {
+        [Key]
         public int Id { get; set; }
         [Required]
         public double OvertimeDailyMax { get; set; }

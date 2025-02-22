@@ -267,106 +267,60 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                // Extract UserId from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Unauthorized("Invalid token.");
-                }
+                if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized("Invalid token.");
 
                 int userId = int.Parse(userIdClaim);
-
                 var attendance = await _context.Attendances
                     .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
-                if (attendance == null)
-                    return NotFound("Attendance not found.");
-
-                if (attendance.ClockOut.HasValue)
-                    return BadRequest("You have already clocked out.");
+                if (attendance == null) return NotFound("Attendance not found.");
+                if (attendance.ClockOut.HasValue) return BadRequest("You have already clocked out.");
 
                 attendance.ClockOut = DateTime.Now;
                 attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
                 attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
-                var user = await _context.Users.FindAsync(attendance.UserId);
-                if (user == null)
-                    return NotFound("User not found.");
-                var username = user?.Name ?? "Unknown"; // Adjust property name if needed (e.g., "Name")
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null) return NotFound("User not found.");
 
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-                if (config == null)
-                    return NotFound("Overtime configuration not found.");
+                if (config == null) return NotFound("Overtime configuration not found.");
 
-                TimeSpan breakDuration = TimeSpan.Zero;
-
-                if (attendance.BreakFinish.HasValue && attendance.BreakStart.HasValue)
-                {
-                    DateTime breakStart = attendance.BreakFinish.Value;
-                    DateTime breakEnd = attendance.BreakStart.Value;
-
-                    if (breakStart >= attendance.ClockIn && breakEnd <= attendance.ClockOut)
-                    {
-                        breakDuration = breakEnd - breakStart;
-                    }
-                }
+                TimeSpan breakDuration = (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
+                    ? attendance.BreakFinish.Value - attendance.BreakStart.Value
+                    : TimeSpan.Zero;
 
                 TimeSpan totalWorkDuration = (attendance.ClockOut.Value - attendance.ClockIn) - breakDuration;
                 double totalWorkHours = totalWorkDuration.TotalHours;
-                int totalWorkHoursInt = (int)totalWorkDuration.TotalHours;
-                int totalWorkMinutes = (int)(totalWorkDuration.TotalMinutes % 60);
 
-                double breakTimeHours = config.BreaktimeMax / 60.0;
-                double regularWorkHours = (config.OfficeEndTime - config.OfficeStartTime).TotalHours - breakTimeHours;
-
+                double regularWorkHours = (config.OfficeEndTime - config.OfficeStartTime).TotalHours - (config.BreaktimeMax / 60.0);
                 var approvedOvertime = await _context.Overtimes
-                    .Where(o => o.UserId == user.Id
-                        && o.Date.Date == attendance.ClockIn.Date
-                        && o.Status == OvertimeRequestStatus.Approved)
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(o => o.UserId == userId && o.Date.Date == attendance.ClockIn.Date && o.Status == OvertimeRequestStatus.Approved);
 
-                double overtimeHours = 0;
+                double actualOvertimeWorked = Math.Max(0, totalWorkHours - regularWorkHours);
+                double overtimeHours = (approvedOvertime != null)
+                    ? Math.Min(actualOvertimeWorked, Math.Min((approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours, config.OvertimeDailyMax))
+                    : 0;
 
-                if (totalWorkHours > regularWorkHours && approvedOvertime != null)
-                {
-                    double approvedOvertimeDuration = (approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours;
-                    double actualOvertimeWorked = totalWorkHours - regularWorkHours;
-
-                    overtimeHours = Math.Min(actualOvertimeWorked, Math.Min(approvedOvertimeDuration, config.OvertimeDailyMax));
-
-                    user.AccumulatedOvertime += overtimeHours;
-                }
-
-                double lateDurationInHours = attendance.LateDuration;
-                int lateHours = (int)Math.Floor(lateDurationInHours);
-                int lateMinutes = (int)Math.Round((lateDurationInHours - lateHours) * 60);
-
+                user.AccumulatedOvertime += overtimeHours;
                 await _context.SaveChangesAsync();
 
-                var response = ApiResponse<object>.Success(new
+                return Ok(ApiResponse<object>.Success(new
                 {
                     message = "Clock-out recorded successfully.",
-                    lateDuration = $"{lateHours}h {lateMinutes}m",
-                    totalWorkHours = $"{totalWorkHoursInt}h {totalWorkMinutes}m",
+                    totalWorkHours = $"{(int)totalWorkDuration.TotalHours}h {(int)(totalWorkDuration.TotalMinutes % 60)}m",
                     approvedOvertime = approvedOvertime != null,
-                    approvedOvertimeDuration = approvedOvertime != null ? $"{approvedOvertime.EndTime.Subtract(approvedOvertime.StartTime).TotalHours:F2}h" : "0h",
-                    actualOvertimeWorked = $"{(totalWorkHours - regularWorkHours):F2}h",
+                    approvedOvertimeDuration = approvedOvertime != null ? $"{(approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours:F2}h" : "0h",
+                    actualOvertimeWorked = $"{actualOvertimeWorked:F2}h",
                     overtimeAdded = $"{overtimeHours:F2}h",
                     newAccumulatedOvertime = $"{Math.Floor(user.AccumulatedOvertime)}h {Math.Round((user.AccumulatedOvertime % 1) * 60)}m"
-                });
-
-                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
-                    .ForContext("Type", "Attendance")
-                    .Information("{UserName} clocked out at {Time}", username, DateTime.Now);
-
-                return Ok(response);
+                }));
             }
             catch (Exception ex)
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
-            
         }
 
         [HttpPut("start-break")]
