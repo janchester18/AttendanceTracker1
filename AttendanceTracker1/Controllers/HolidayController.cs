@@ -77,17 +77,15 @@ namespace AttendanceTracker1.Controllers
                 _context.Holidays.Add(holiday);
                 await _context.SaveChangesAsync();
 
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
+                var userId = int.Parse(userIdClaim);
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                    .ForContext("Type", "Holiday")
@@ -127,17 +125,15 @@ namespace AttendanceTracker1.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
+                var userId = int.Parse(userIdClaim);
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                    .ForContext("Type", "Holiday")

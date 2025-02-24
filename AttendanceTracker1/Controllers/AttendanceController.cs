@@ -53,6 +53,7 @@ namespace AttendanceTracker1.Controllers
                         a.BreakStart,
                         a.BreakFinish,
                         a.FormattedWorkDuration,
+                        a.FormattedLateDuration,
                         Status = a.Status.ToString(),
                         a.Remarks
                     })
@@ -177,18 +178,15 @@ namespace AttendanceTracker1.Controllers
                     return BadRequest(ModelState);
                 }
 
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                // Retrieve the user from the database to get the username.
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown"; // Adjust property name if needed (e.g., "Name")
+                var userId = int.Parse(userIdClaim);
 
                 var today = DateTime.Now.Date;
 
@@ -220,20 +218,21 @@ namespace AttendanceTracker1.Controllers
                 };
 
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-                var officeStartTime = config.OfficeStartTime;
                 var clockInTime = attendance.ClockIn.TimeOfDay;
 
                 string message = "Clock-in recorded successfully.";
 
-                if (officeStartTime < clockInTime)
+                var officeStartDateTime = today.Add(config.OfficeStartTime);
+                var lateDuration = (attendance.ClockIn - officeStartDateTime).TotalMinutes; // Store in minutes
+
+                if (lateDuration > 0)
                 {
                     attendance.Status = AttendanceStatus.Late;
+                    attendance.LateDuration = lateDuration; // Store in minutes
 
-                    double lateDurationInHours = (clockInTime - officeStartTime).TotalHours;
-                    int lateHours = (int)Math.Floor(lateDurationInHours);
-                    int lateMinutes = (int)Math.Round((lateDurationInHours - lateHours) * 60);
+                    int lateHours = (int)(lateDuration / 60);
+                    int lateMinutes = (int)(lateDuration % 60);
 
-                    attendance.LateDuration = lateDurationInHours;
                     message = $"Clock-in recorded successfully. However, you are late by {lateHours}h {lateMinutes}m.";
                 }
 
@@ -268,9 +267,15 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized("Invalid token.");
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
 
-                int userId = int.Parse(userIdClaim);
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
+                {
+                    return Unauthorized("Invalid token.");
+                }
+
+                var userId = int.Parse(userIdClaim);
+
                 var attendance = await _context.Attendances
                     .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
@@ -306,6 +311,10 @@ namespace AttendanceTracker1.Controllers
                 user.AccumulatedOvertime += overtimeHours;
                 await _context.SaveChangesAsync();
 
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Attendance")
+                    .Information("{UserName} clocked out at {Time}", username, DateTime.Now);
+
                 return Ok(ApiResponse<object>.Success(new
                 {
                     message = "Clock-out recorded successfully.",
@@ -329,17 +338,17 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                // Extract UserId from JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                int userId = int.Parse(userIdClaim);
+                var userId = int.Parse(userIdClaim);
 
                 var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
 
                 var attendance = await _context.Attendances
                     .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
@@ -370,24 +379,23 @@ namespace AttendanceTracker1.Controllers
             
         }
 
-
         [HttpPut("end-break")]
         [Authorize]
         public async Task<IActionResult> EndBreak()
         {
             try
             {
-                // Extract UserId from JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                int userId = int.Parse(userIdClaim);
+                var userId = int.Parse(userIdClaim);
 
                 var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
 
                 // Get today's attendance record for the user
                 var attendance = await _context.Attendances
@@ -433,16 +441,16 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                // Extract UserId from JWT token
-                var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(adminIdClaim))
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var adminName = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                int adminId = int.Parse(adminIdClaim);
+                var adminId = int.Parse(userIdClaim);
                 var admin = await _context.Users.FindAsync(adminId);
-                var adminName = admin?.Name ?? "Unknown";
 
                 var attendance = await _context.Attendances.FindAsync(id);
                 if (attendance == null)
@@ -469,19 +477,19 @@ namespace AttendanceTracker1.Controllers
 
                 // ✅ Dynamically build response
                 var response = new Dictionary<string, object>
-        {
-            { "message", "Attendance Record updated successfully." },
-            { "totalBreakHours", attendance.FormattedBreakDuration },
-            { "totalWorkHours", attendance.FormattedWorkDuration }
-        };
+                {
+                    { "message", "Attendance Record updated successfully." },
+                    { "totalBreakHours", attendance.FormattedBreakDuration },
+                    { "totalWorkHours", attendance.FormattedWorkDuration }
+                };
 
                 new Dictionary<string, DateTime?>
-        {
-            { "newClockIn", attendance.ClockIn },
-            { "newClockOut", attendance.ClockOut },
-            { "newBreakStart", attendance.BreakStart },
-            { "newBreakFinish", attendance.BreakFinish }
-        }
+                {
+                    { "newClockIn", attendance.ClockIn },
+                    { "newClockOut", attendance.ClockOut },
+                    { "newBreakStart", attendance.BreakStart },
+                    { "newBreakFinish", attendance.BreakFinish }
+                }
                 .Where(pair => pair.Value.HasValue)
                 .ToList()
                 .ForEach(pair => response.Add(pair.Key, pair.Value));
@@ -497,6 +505,5 @@ namespace AttendanceTracker1.Controllers
                 return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
         }
-
     }
 }

@@ -106,6 +106,23 @@ namespace AttendanceTracker1.Models
                 return "N/A";
             }
         }
+
+        /// <summary>
+        /// Returns a formatted string representation of the late duration.
+        /// </summary>
+        public string FormattedLateDuration
+        {
+            get
+            {
+                if (LateDuration <= 0)
+                    return "On Time";
+
+                int hours = (int)(LateDuration / 60);
+                int minutes = (int)(LateDuration % 60);
+
+                return $"{hours}h {minutes}m";
+            }
+        }
     }
 
     public enum AttendanceStatus
