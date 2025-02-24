@@ -153,8 +153,7 @@ namespace AttendanceTracker1.Controllers
             }
             catch (Exception ex)
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
         }
     }

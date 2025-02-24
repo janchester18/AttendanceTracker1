@@ -170,17 +170,15 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
+                var userId = int.Parse(userIdClaim);
 
                 var leaveRequest = new Leave
                 {
@@ -241,17 +239,15 @@ namespace AttendanceTracker1.Controllers
                     return BadRequest("Rejection reason is required when status is Rejected.");
                 }
 
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
+                var userId = int.Parse(userIdClaim);
 
                 leave.Status = request.Status;
                 leave.ReviewedBy = userId;
