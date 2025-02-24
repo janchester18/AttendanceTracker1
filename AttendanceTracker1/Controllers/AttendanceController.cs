@@ -107,6 +107,7 @@ namespace AttendanceTracker1.Controllers
                 a.BreakStart,
                 a.BreakFinish,
                 a.FormattedWorkDuration,
+                a.FormattedLateDuration,
                 Status = a.Status.ToString(),
                 a.Remarks
             })
@@ -147,6 +148,7 @@ namespace AttendanceTracker1.Controllers
                 a.BreakStart,
                 a.BreakFinish,
                 a.FormattedWorkDuration,
+                a.FormattedLateDuration,
                 Status = a.Status.ToString(),
                 a.Remarks
             })
