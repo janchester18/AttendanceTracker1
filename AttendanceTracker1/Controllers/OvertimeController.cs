@@ -176,17 +176,15 @@ namespace AttendanceTracker1.Controllers
                     return BadRequest("Start time must be before end time.");
                 }
 
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
+                var userId = int.Parse(userIdClaim);
 
                 // 🔹 Create Overtime Request
                 var overtime = new Overtime
@@ -245,17 +243,15 @@ namespace AttendanceTracker1.Controllers
                     return BadRequest("Rejection reason is required when status is Rejected.");
                 }
 
-                // Get the user ID from the JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim))
+                var username = User.FindFirst(ClaimTypes.Name)?.Value;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized("Invalid token.");
                 }
 
-                var userId = int.Parse(userIdClaim); // Convert string to integer if necessary
-
-                var user = await _context.Users.FindAsync(userId);
-                var username = user?.Name ?? "Unknown";
+                var userId = int.Parse(userIdClaim);
 
                 overtime.Status = request.Status;
                 overtime.ReviewedBy = userId;
