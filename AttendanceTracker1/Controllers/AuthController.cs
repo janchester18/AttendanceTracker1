@@ -6,6 +6,7 @@ using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -35,15 +36,11 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpPost("add-user")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
         {
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
                 var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 if (existingUser != null)
                 {
@@ -89,12 +86,11 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                if (!ModelState.IsValid)
-                    return BadRequest(ModelState);
-
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 if (user == null || !user.VerifyPassword(model.Password))
-                    return Unauthorized(new { message = "Invalid credentials" }); //verify
+                    return Ok(ApiResponse<object>.Success(new
+                        { message = "Invalid credentials." }
+                    )); //verify
 
                 var accessToken = GenerateJwtToken(user);
                 var refreshToken = GenerateRefreshToken();

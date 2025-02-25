@@ -22,5 +22,9 @@ namespace AttendanceTracker1.DTO
         [Required(ErrorMessage = "Reason is required.")]
         [StringLength(500, ErrorMessage = "Reason must not exceed 500 characters.")]
         public string Reason { get; set; } // Justification for overtime
+
+        [Required(ErrorMessage = "Expected output is required.")]
+        [StringLength(500, ErrorMessage = "Expected output must not exceed 500 characters.")]
+        public string ExpectedOutput { get; set; } // Expected Output for the Overtime
     }
 }

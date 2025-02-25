@@ -46,6 +46,7 @@ namespace AttendanceTracker1.Controllers
                         StartTime = o.StartTime,
                         EndTime = o.EndTime,
                         Reason = o.Reason,
+                        ExpectedOutput = o.ExpectedOutput,
                         Status = o.Status.ToString(),
                         ReviewedBy = o.ReviewedBy,
                         ApproverName = o.Approver != null ? o.Approver.Name : null,
@@ -99,6 +100,7 @@ namespace AttendanceTracker1.Controllers
                     StartTime = o.StartTime,
                     EndTime = o.EndTime,
                     Reason = o.Reason,
+                    ExpectedOutput = o.ExpectedOutput,
                     Status = o.Status.ToString(),
                     ReviewedBy = o.ReviewedBy,
                     ApproverName = o.Approver != null ? o.Approver.Name : null,
@@ -142,6 +144,7 @@ namespace AttendanceTracker1.Controllers
                     StartTime = o.StartTime,
                     EndTime = o.EndTime,
                     Reason = o.Reason,
+                    ExpectedOutput = o.ExpectedOutput,
                     Status = o.Status.ToString(),
                     ReviewedBy = o.ReviewedBy,
                     ApproverName = o.Approver != null ? o.Approver.Name : null,
@@ -166,11 +169,6 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
                 if (overtimeRequest.StartTime >= overtimeRequest.EndTime)
                 {
                     return BadRequest("Start time must be before end time.");
@@ -194,6 +192,7 @@ namespace AttendanceTracker1.Controllers
                     StartTime = overtimeRequest.StartTime,
                     EndTime = overtimeRequest.EndTime,
                     Reason = overtimeRequest.Reason,
+                    ExpectedOutput = overtimeRequest.ExpectedOutput,
                     Status = OvertimeRequestStatus.Pending,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now

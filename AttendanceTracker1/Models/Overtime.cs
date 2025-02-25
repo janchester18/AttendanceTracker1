@@ -24,6 +24,9 @@ namespace AttendanceTracker1.Models
 
         [Required]
         public string Reason { get; set; } // Justification for Overtime
+        
+        [Required]
+        public string ExpectedOutput { get; set; } // Expected Output for the Overtime
 
         [Required]
         public OvertimeRequestStatus Status { get; set; } = OvertimeRequestStatus.Pending;

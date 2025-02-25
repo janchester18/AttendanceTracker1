@@ -93,7 +93,7 @@ namespace AttendanceTracker1.Controllers
 
                 return Ok(ApiResponse<object>.Success(new
                 {
-                    message = $"Holiday successfuly created."
+                    message = $"Holiday successfully created."
                 }));
             }
             catch (Exception ex)

@@ -89,7 +89,7 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var attendance = await _context.Attendances
+            var attendance = await _context.Attendances
             .Where(a => a.UserId == id)
             .Include(a => a.User)
             .Select(a => new
@@ -130,7 +130,7 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var attendance = await _context.Attendances
+            var attendance = await _context.Attendances
             .Where(a => a.Id == id)
             .Include(a => a.User)
             .Select(a => new
@@ -175,11 +175,6 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value;
 

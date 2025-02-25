@@ -9,6 +9,7 @@
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
         public string Reason { get; set; } = string.Empty;
+        public string ExpectedOutput { get; set; } // Expected Output for the Overtime
         public string Status { get; set; }
         public int? ReviewedBy { get; set; }
         public string? ApproverName { get; set; } // From Approver (if exists)

@@ -14,6 +14,7 @@ using Serilog;
 using Serilog.Events;
 using System.Collections.ObjectModel;
 using System.Data;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -144,6 +145,28 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 builder.Services.AddSingleton<Serilog.ILogger>(Log.Logger);
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(e => e.Value.Errors.Count > 0)
+            .ToDictionary(
+                e => e.Key,
+                e => e.Value.Errors.Select(err => err.ErrorMessage).ToArray()
+            );
+
+        var result = new
+        {
+            success = false,
+            message = "Validation failed",
+            errors
+        };
+
+        return new BadRequestObjectResult(result);
+    };
+});
 
 var app = builder.Build();
 
