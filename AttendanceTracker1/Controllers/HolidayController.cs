@@ -40,14 +40,14 @@ namespace AttendanceTracker1.Controllers
 
                 var response = ApiResponse<object>.Success(new
                 {
-                    holidays = holidays,
+                    holidays,
                     totalRecords,
                     totalPages,
                     currentPage = page,
                     pageSize,
                     hasNextPage = page < totalPages,
                     hasPreviousPage = page > 1
-                });
+                }, "Holiday data requested successfully.");
 
                 return Ok(response);
             }
@@ -82,7 +82,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -91,10 +91,7 @@ namespace AttendanceTracker1.Controllers
                    .ForContext("Type", "Holiday")
                    .Information("{UserName} has added holiday {Id} at {Time}", username, holiday.Id, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(new
-                {
-                    message = $"Holiday successfully created."
-                }));
+                return Ok(ApiResponse<object>.Success(holiday, $"Holiday successfully created."));
             }
             catch (Exception ex)
             {
@@ -113,7 +110,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (holiday == null)
                 {
-                    return BadRequest("Holiday not found.");
+                    return Ok(ApiResponse<object>.Success(null, "Holiday not found."));
                 }
 
                 holiday.Name = request.Name ?? holiday.Name;
@@ -130,7 +127,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -149,7 +146,7 @@ namespace AttendanceTracker1.Controllers
                     updatedAt = holiday.UpdatedAt
                 };
 
-                return Ok(ApiResponse<object>.Success(response));
+                return Ok(ApiResponse<object>.Success(response, "Holiday has been updated successfully."));
             }
             catch (Exception ex)
             {

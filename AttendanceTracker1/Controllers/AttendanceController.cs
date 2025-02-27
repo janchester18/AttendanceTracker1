@@ -64,14 +64,14 @@ namespace AttendanceTracker1.Controllers
                 // Wrap the result in ApiResponse
                 var response = ApiResponse<object>.Success(new
                 {
-                    attendances = attendances,
+                    attendances,
                     totalRecords,
                     totalPages,
                     currentPage = page,
                     pageSize,
                     hasNextPage = page < totalPages,
                     hasPreviousPage = page > 1
-                });
+                }, "Attendance data request successful.");
 
                 return Ok(response); // Returning the standardized API response
             }
@@ -89,31 +89,37 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-            var attendance = await _context.Attendances
-            .Where(a => a.UserId == id)
-            .Include(a => a.User)
-            .Select(a => new
-            {
-
-                a.UserId,
-                User = new
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+                if(user == null)
                 {
-                    a.User.Name,
-                    a.User.Email
-                },
-                a.Date,
-                a.ClockIn,
-                a.ClockOut,
-                a.BreakStart,
-                a.BreakFinish,
-                a.FormattedWorkDuration,
-                a.FormattedLateDuration,
-                Status = a.Status.ToString(),
-                a.Remarks
-            })
-                .ToListAsync();
+                    return Ok(ApiResponse<object>.Success("User not found."));
+                }
 
-                return Ok(ApiResponse<object>.Success(attendance));
+                var attendance = await _context.Attendances
+                .Where(a => a.UserId == id)
+                .Include(a => a.User)
+                .Select(a => new
+                {
+
+                    a.UserId,
+                    User = new
+                    {
+                        a.User.Name,
+                        a.User.Email
+                    },
+                    a.Date,
+                    a.ClockIn,
+                    a.ClockOut,
+                    a.BreakStart,
+                    a.BreakFinish,
+                    a.FormattedWorkDuration,
+                    a.FormattedLateDuration,
+                    Status = a.Status.ToString(),
+                    a.Remarks
+                })
+                    .ToListAsync();
+
+                    return Ok(ApiResponse<object>.Success(attendance, "Attendance data request successful."));
             }
             catch (Exception ex)
             {
@@ -130,36 +136,37 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-            var attendance = await _context.Attendances
-            .Where(a => a.Id == id)
-            .Include(a => a.User)
-            .Select(a => new
-            {
-                a.Id, // Attendance ID
-                a.UserId,
-                User = new
+
+                var attendance = await _context.Attendances
+                .Where(a => a.Id == id)
+                .Include(a => a.User)
+                .Select(a => new
                 {
-                    a.User.Name,
-                    a.User.Email
-                },
-                a.Date,
-                a.ClockIn,
-                a.ClockOut,
-                a.BreakStart,
-                a.BreakFinish,
-                a.FormattedWorkDuration,
-                a.FormattedLateDuration,
-                Status = a.Status.ToString(),
-                a.Remarks
-            })
-            .FirstOrDefaultAsync();
+                    a.Id, // Attendance ID
+                    a.UserId,
+                    User = new
+                    {
+                        a.User.Name,
+                        a.User.Email
+                    },
+                    a.Date,
+                    a.ClockIn,
+                    a.ClockOut,
+                    a.BreakStart,
+                    a.BreakFinish,
+                    a.FormattedWorkDuration,
+                    a.FormattedLateDuration,
+                    Status = a.Status.ToString(),
+                    a.Remarks
+                })
+                .FirstOrDefaultAsync();
 
                 if (attendance == null)
                 {
-                    return NotFound("Attendance record not found.");
+                    return Ok(ApiResponse<object>.Success("Attendance record not found."));
                 }
 
-                return Ok(ApiResponse<object>.Success(attendance));
+                return Ok(ApiResponse<object>.Success(attendance, "Attendance data request successful."));
             }
             catch (Exception ex)
             {
@@ -180,7 +187,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token"));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -192,7 +199,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (existingAttendance != null && existingAttendance.ClockIn != default(DateTime))
                 {
-                    return BadRequest("You have already clocked in today.");
+                    return Ok(ApiResponse<object>.Success(null, "You have already clocked in today."));
                 }
 
                 DateTime? parsedClockOut = null;
@@ -214,14 +221,15 @@ namespace AttendanceTracker1.Controllers
                     ClockInLongitude = clockInDto.ClockInLongitude,
                 };
 
-                if (DateTime.TryParse(clockInDto.ClockIn, out DateTime parsedClockIn))
-                {
-                    attendance.ClockIn = parsedClockIn;
-                }
-                else
-                {
-                    return BadRequest("Invalid clock-in time format.");
-                }
+                //for testing dummy clock in time
+                //if (DateTime.TryParse(clockInDto.ClockIn, out DateTime parsedClockIn))
+                //{
+                //    attendance.ClockIn = parsedClockIn;
+                //}
+                //else
+                //{
+                //    return Ok(ApiResponse<object>.Success(null, "Invalid clock-in time format."));
+                //}
 
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
                 var clockInTime = attendance.ClockIn.TimeOfDay;
@@ -247,11 +255,10 @@ namespace AttendanceTracker1.Controllers
 
                 var response = ApiResponse<object>.Success(new
                 {
-                    message,
                     attendanceId = attendance.Id,
                     clockinLatitude = attendance.ClockInLatitude,
                     clockinLongitude = attendance.ClockInLongitude
-                });
+                }, message);
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Attendance")
@@ -277,7 +284,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token"));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -285,26 +292,28 @@ namespace AttendanceTracker1.Controllers
                 var attendance = await _context.Attendances
                     .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
-                if (attendance == null) return NotFound("Attendance not found.");
-                if (attendance.ClockOut.HasValue) return BadRequest("You have already clocked out.");
+                if (attendance == null) return Ok(ApiResponse<object>.Success(null, "Attendance not found"));
+                if (attendance.ClockOut.HasValue) return Ok(ApiResponse<object>.Success(null, "You have already clocked out."));
 
+                //for testing dummy clock out time
                 if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
                 {
                     attendance.ClockOut = parsedClockOut;
                 }
                 else
                 {
-                    return BadRequest("Invalid clock-out time format.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid clock-out time format."));
                 }
 
+                //attendance.ClockOut = DateTime.Now;
                 attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
                 attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
                 var user = await _context.Users.FindAsync(userId);
-                if (user == null) return NotFound("User not found.");
+                if (user == null) return Ok(ApiResponse<object>.Success(null, "User not found"));
 
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-                if (config == null) return NotFound("Overtime configuration not found.");
+                if (config == null) return Ok(ApiResponse<object>.Success(null, "Overtime configuration not found."));
 
                 // Break time calculation in minutes
                 int breakMinutes = (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
@@ -362,7 +371,6 @@ namespace AttendanceTracker1.Controllers
 
                 return Ok(ApiResponse<object>.Success(new
                 {
-                    message = "Clock-out recorded successfully.",
                     totalWorkTime = FormatMinutes(totalWorkMinutes),
                     approvedOvertime = approvedOvertime != null,
                     approvedOvertimeDuration = FormatMinutes(approvedOvertimeMinutes),
@@ -371,7 +379,7 @@ namespace AttendanceTracker1.Controllers
                     nightDifferential = FormatMinutes(nightDifferentialMinutes),
                     newAccumulatedOvertime = FormatMinutes(user.AccumulatedOvertime),
                     newAccumulatedNightDifferential = FormatMinutes(user.AccumulatedNightDifferential)
-                }));
+                }, "Clock-out recorded successfully."));
             }
             catch (Exception ex)
             {
@@ -390,7 +398,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token"));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -401,13 +409,13 @@ namespace AttendanceTracker1.Controllers
                     .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
                 if (attendance == null)
-                    return NotFound("Attendance not found.");
+                    return Ok(ApiResponse<object>.Success(null, "Attendance not found."));
 
                 if (attendance.ClockOut.HasValue)
-                    return BadRequest("Cannot start break because you are already clocked out.");
+                    return Ok(ApiResponse<object>.Success(null, "Cannot start break because you are already clocked out."));
 
                 if (attendance.BreakStart.HasValue || attendance.BreakFinish.HasValue)
-                    return BadRequest("Break has already been started or ended.");
+                    return Ok(ApiResponse<object>.Success(null, "Break has already been started or ended."));
 
                 attendance.BreakStart = DateTime.Now;
                 await _context.SaveChangesAsync();
@@ -416,7 +424,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Attendance")
                     .Information("{UserName} started break at {Time}", username, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(new { message = "Break has started." }));
+                return Ok(ApiResponse<object>.Success(new { attendance.BreakStart }, "Break has started."));
             }
             catch (Exception ex)
             {
@@ -437,7 +445,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token"));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -449,16 +457,16 @@ namespace AttendanceTracker1.Controllers
                     .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
                 if (attendance == null)
-                    return NotFound("Attendance not found.");
+                    return Ok(ApiResponse<object>.Success(null, "Attendance not found."));
 
                 if (!attendance.BreakStart.HasValue)
-                    return BadRequest("Cannot end break because break has not been started.");
+                    return Ok(ApiResponse<object>.Success(null, "Cannot end break because break has not been started."));
 
                 if (attendance.ClockOut.HasValue)
-                    return BadRequest("Cannot end break because you are already clocked out.");
+                    return Ok(ApiResponse<object>.Success(null, "Cannot end break because you are already clocked out."));
 
                 if (attendance.BreakFinish.HasValue)
-                    return BadRequest("Break has already been ended.");
+                    return Ok(ApiResponse<object>.Success(null, "Break has already been ended."));
 
                 attendance.BreakFinish = DateTime.Now;
                 await _context.SaveChangesAsync();
@@ -469,9 +477,8 @@ namespace AttendanceTracker1.Controllers
 
                 return Ok(ApiResponse<object>.Success(new
                 {
-                    message = "Break has ended.",
                     breakDuration = attendance.FormattedBreakDuration // Ensure this property exists in your model
-                }));
+                }, "Break has ended."));
             }
             catch (Exception ex)
             {
@@ -493,7 +500,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
                 }
 
                 var adminId = int.Parse(userIdClaim);
@@ -502,7 +509,7 @@ namespace AttendanceTracker1.Controllers
                 var attendance = await _context.Attendances.FindAsync(id);
                 if (attendance == null)
                 {
-                    return BadRequest("Attendance Record not Found");
+                    return Ok(ApiResponse<object>.Success(null, "Attendance Record not Found"));
                 }
 
                 // ✅ Parse the ClockIn and ClockOut strings before updating
@@ -525,7 +532,6 @@ namespace AttendanceTracker1.Controllers
                 // ✅ Dynamically build response
                 var response = new Dictionary<string, object>
                 {
-                    { "message", "Attendance Record updated successfully." },
                     { "totalBreakHours", attendance.FormattedBreakDuration },
                     { "totalWorkHours", attendance.FormattedWorkDuration }
                 };
@@ -545,7 +551,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Attendance")
                     .Information("Attendance {Id} has been edited by {AdminName}", id, adminName);
 
-                return Ok(ApiResponse<object>.Success(response));
+                return Ok(ApiResponse<object>.Success(response, "Attendance Record updated successfully."));
             }
             catch (Exception ex)
             {

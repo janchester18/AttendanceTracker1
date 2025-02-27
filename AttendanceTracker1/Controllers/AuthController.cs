@@ -44,7 +44,7 @@ namespace AttendanceTracker1.Controllers
                 var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 if (existingUser != null)
                 {
-                    return BadRequest(new { message = "Email is already registered." });
+                    return Ok(ApiResponse<object>.Success(null, "Email is already registered."));
                 }
 
                 var user = new User
@@ -68,9 +68,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Authorization")
                     .Information("{UserName} has been registered at {Time}", username, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(new 
-                    { message = "User registered successfully." }
-                ));
+                return Ok(ApiResponse<object>.Success(new { user.Name, user.Role }, "User registered successfully."));
             }
             catch (Exception ex)
             {
@@ -88,9 +86,7 @@ namespace AttendanceTracker1.Controllers
             {
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 if (user == null || !user.VerifyPassword(model.Password))
-                    return Ok(ApiResponse<object>.Success(new
-                        { message = "Invalid credentials." }
-                    )); //verify
+                    return Ok(ApiResponse<object>.Success(null, "Invalid credentials.")); //verify
 
                 var accessToken = GenerateJwtToken(user);
                 var refreshToken = GenerateRefreshToken();
@@ -100,10 +96,9 @@ namespace AttendanceTracker1.Controllers
 
                 var response = ApiResponse<object>.Success(new
                 {
-                    message = "Login successful",
                     accessToken,
                     refreshToken,
-                });
+                }, "Login successful");
 
                 var username = user?.Name ?? "Unknown";
 
@@ -130,7 +125,7 @@ namespace AttendanceTracker1.Controllers
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -163,10 +158,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Authorization")
                     .Information("{UserName} has logged out at {Time}", username, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(new 
-                { 
-                    message = "Logged out successfully" 
-                }));
+                return Ok(ApiResponse<object>.Success(null, "Logged out successfully"));
             }
             catch (Exception ex)
             {
@@ -183,29 +175,29 @@ namespace AttendanceTracker1.Controllers
                 var principal = GetPrincipalFromExpiredToken(refreshRequest.AccessToken);
                 if (principal == null)
                 {
-                    return Unauthorized(new { message = "Invalid token" });
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token"));
                 }
 
                 var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userId == null)
                 {
-                    return Unauthorized(new { message = "Invalid user ID" });
+                    return Ok(ApiResponse<object>.Success(null, "Invalid user ID" ));
                 }
 
                 // Retrieve refresh token from the HttpOnly cookie
                 var refreshTokenFromCookie = Request.Cookies["refreshToken"];
                 if (string.IsNullOrEmpty(refreshTokenFromCookie))
                 {
-                    return Unauthorized(new { message = "Refresh token missing" });
+                    return Ok(ApiResponse<object>.Success(null, "Refresh token missing" ));
                 }
 
                 if (!int.TryParse(userId, out int userIdInt))
                 {
-                    return Unauthorized(new { message = "Invalid user ID format" });
+                    return Ok(ApiResponse<object>.Success(null, "Invalid user ID format" ));
                 }
 
                 var user = _context.Users.Find(userIdInt);
-                if (user == null) return Unauthorized(new { message = "User not found" });
+                if (user == null) return Ok(ApiResponse<object>.Success(null, "User not found" ));
 
                 // Issue a new access token
                 var newAccessToken = GenerateJwtToken(user);
