@@ -28,7 +28,7 @@ namespace AttendanceTracker1.Controllers
             {
                 var config = await _context.OvertimeConfigs.ToListAsync();
 
-                return Ok(ApiResponse<object>.Success(config));
+                return Ok(ApiResponse<object>.Success(config, "Config record requested successfully."));
             }
             catch(Exception ex)
             {
@@ -45,10 +45,7 @@ namespace AttendanceTracker1.Controllers
             {
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
 
-                if (config == null)
-                {
-                    return BadRequest("Overtime configuration not found.");
-                }
+                if (config == null) return Ok(ApiResponse<object>.Success(null, "Overtime configuration not found."));
 
                 config.OvertimeDailyMax = updatedConfig.OvertimeDailyMax ?? config.OvertimeDailyMax;
                 config.BreaktimeMax = updatedConfig.BreaktimeMax ?? config.BreaktimeMax;
@@ -61,10 +58,7 @@ namespace AttendanceTracker1.Controllers
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value;
 
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Unauthorized("Invalid token.");
-                }
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) return Ok(ApiResponse<object>.Success(null, "Invalid token."));
 
                 var userId = int.Parse(userIdClaim);
 
@@ -72,7 +66,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Config")
                     .Information("{UserName} has updated the config at {Time}", username, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(config));
+                return Ok(ApiResponse<object>.Success(config, "Config has been updated successfully."));
             }
             catch (Exception ex)
             {

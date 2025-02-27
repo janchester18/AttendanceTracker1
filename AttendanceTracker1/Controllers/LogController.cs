@@ -1,5 +1,6 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
+using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +38,7 @@ namespace AttendanceTracker1.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(logs);
+            return Ok(ApiResponse<object>.Success(logs, "Log records requested successfully."));
         }
     }
 }

@@ -66,7 +66,7 @@ namespace AttendanceTracker1.Controllers
                     pageSize,
                     hasNextPage = page < totalPages,
                     hasPreviousPage = page > 1
-                });
+                }, "Leave data request successful.");
 
                 return Ok(response);
             }
@@ -104,9 +104,11 @@ namespace AttendanceTracker1.Controllers
                     RejectionReason = l.RejectionReason,
                     CreatedDate = l.CreatedDate
                 })
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(); 
 
-                return Ok(ApiResponse<object>.Success(leave));
+                if(leave == null) return Ok(ApiResponse<object>.Success(null, "Leave record not found."));
+
+                return Ok(ApiResponse<object>.Success(leave, "Leave record requested successfully."));
             }
             catch (Exception ex)
             {
@@ -123,10 +125,7 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var userExists = await _context.Users.AnyAsync(u => u.Id == id);
-                if (!userExists)
-                {
-                    return NotFound($"User with ID {id} not found.");
-                }
+                if (!userExists) return Ok(ApiResponse<object>.Success(null, $"User with ID {id} not found."));
 
                 var leave = await _context.Leaves
                     .Where(l => l.UserId == id)
@@ -150,12 +149,9 @@ namespace AttendanceTracker1.Controllers
                     })
                     .ToListAsync();
 
-                if (!leave.Any())
-                {
-                    return NotFound($"User with ID {id} has no leave requests.");
-                }
+                if (!leave.Any()) return Ok(ApiResponse<object>.Success(null, $"User with ID {id} has no leave requests."));
 
-                return Ok(ApiResponse<object>.Success(leave));
+                return Ok(ApiResponse<object>.Success(leave, "Leave record requested successfully"));
             }
             catch (Exception ex)
             {
@@ -175,7 +171,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -195,10 +191,9 @@ namespace AttendanceTracker1.Controllers
 
                 var response = ApiResponse<object>.Success(new
                 {
-                    message = "Leave request submitted successfully!",
                     leaveId = leaveRequest.Id,
                     status = leaveRequest.Status.ToString()
-                });
+                }, "Leave request submitted successfully!");
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Leave")
@@ -221,31 +216,19 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
-                if (leave == null)
-                {
-                    return NotFound($"Request with leave id: {id} was not found.");
-                }
-
+                if (leave == null) return Ok(ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found."));
+                
                 // ✅ Validate if status is a valid enum value
-                if (!Enum.IsDefined(typeof(LeaveStatus), request.Status))
-                {
-                    return BadRequest("Invalid leave status.");
-                }
-
+                if (!Enum.IsDefined(typeof(LeaveStatus), request.Status)) return Ok(ApiResponse<object>.Success(null, "Invalid leave status."));
+                
                 // Check if RejectionReason is provided when status is Rejected
                 if (request.Status == LeaveStatus.Rejected &&
-                    string.IsNullOrWhiteSpace(request.RejectionReason))
-                {
-                    return BadRequest("Rejection reason is required when status is Rejected.");
-                }
+                    string.IsNullOrWhiteSpace(request.RejectionReason)) return Ok(ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
 
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value;
 
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Unauthorized("Invalid token.");
-                }
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) return Ok(ApiResponse<object>.Success(null, "Invalid token."));
 
                 var userId = int.Parse(userIdClaim);
 
@@ -261,9 +244,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Leave")
                     .Information("{UserName} has {Action} leave {Id} at {Time}", username, action, id, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(new 
-                    { message = $"Leave request {id} has been {leave.Status}." 
-                }));
+                return Ok(ApiResponse<object>.Success(null,  $"Leave request {id} has been {leave.Status}."));
             }
             catch (Exception ex)
             {
