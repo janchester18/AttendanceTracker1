@@ -1,20 +1,20 @@
 {
   "profiles": {
     "http": {
-        "commandName": "Project",
-        "environmentVariables": {
-            "ASPNETCORE_ENVIRONMENT": "Development"
-        },
-        "dotnetRunMessages": true,
-        "applicationUrl": "http://10.0.0.12:5249"
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://192.168.1.220:5249"
     },
     "https": {
-        "commandName": "Project",
-        "environmentVariables": {
-            "ASPNETCORE_ENVIRONMENT": "Development"
-        },
-        "dotnetRunMessages": true,
-        "applicationUrl": "https://10.0.0.12:7009;http://10.0.0.12:5249"
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "https://192.168.1.220:7009;http://192.168.1.220:5249"
     },
     "IIS Express": {
       "commandName": "IISExpress",

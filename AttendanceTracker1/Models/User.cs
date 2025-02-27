@@ -24,14 +24,12 @@ namespace AttendanceTracker1.Models
         [Required]
         [RegularExpression("^(Admin|Employee)$", ErrorMessage = "Role must be either 'Admin' or 'Employee'.")]
         public string Role { get; set; } = "Employee"; // Default role
-
         public DateTime Created { get; set; } = DateTime.Now;
         public DateTime Updated { get; set; }
         public double AccumulatedOvertime { get; set; } = 0.0;
-
+        public double AccumulatedNightDifferential { get; set; } = 0.0; 
         public ICollection<Attendance>? Attendances { get; set; }
         public ICollection<Leave>? Leaves { get; set; }
-
         public ICollection<Leave>? Approvals { get; set; }
         public ICollection<Overtime>? OvertimeRequests { get; set; }
         public ICollection<Overtime>? OvertimeApprovals { get; set; }

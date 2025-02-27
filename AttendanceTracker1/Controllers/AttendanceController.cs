@@ -214,6 +214,15 @@ namespace AttendanceTracker1.Controllers
                     ClockInLongitude = clockInDto.ClockInLongitude,
                 };
 
+                if (DateTime.TryParse(clockInDto.ClockIn, out DateTime parsedClockIn))
+                {
+                    attendance.ClockIn = parsedClockIn;
+                }
+                else
+                {
+                    return BadRequest("Invalid clock-in time format.");
+                }
+
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
                 var clockInTime = attendance.ClockIn.TimeOfDay;
 
@@ -262,7 +271,7 @@ namespace AttendanceTracker1.Controllers
         public async Task<IActionResult> ClockOut([FromBody] ClockOutDto clockOutDto)
         {
             try
-            {
+            {   
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value;
 
@@ -279,7 +288,15 @@ namespace AttendanceTracker1.Controllers
                 if (attendance == null) return NotFound("Attendance not found.");
                 if (attendance.ClockOut.HasValue) return BadRequest("You have already clocked out.");
 
-                attendance.ClockOut = DateTime.Now;
+                if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
+                {
+                    attendance.ClockOut = parsedClockOut;
+                }
+                else
+                {
+                    return BadRequest("Invalid clock-out time format.");
+                }
+
                 attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
                 attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
@@ -289,38 +306,71 @@ namespace AttendanceTracker1.Controllers
                 var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
                 if (config == null) return NotFound("Overtime configuration not found.");
 
-                TimeSpan breakDuration = (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
-                    ? attendance.BreakFinish.Value - attendance.BreakStart.Value
-                    : TimeSpan.Zero;
+                // Break time calculation in minutes
+                int breakMinutes = (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
+                    ? (int)(attendance.BreakFinish.Value - attendance.BreakStart.Value).TotalMinutes
+                    : 0;
 
-                TimeSpan totalWorkDuration = (attendance.ClockOut.Value - attendance.ClockIn) - breakDuration;
-                double totalWorkHours = totalWorkDuration.TotalHours;
+                // Work period
+                DateTime workStart = attendance.ClockIn;
+                DateTime workEnd = attendance.ClockOut.Value;
 
-                double regularWorkHours = (config.OfficeEndTime - config.OfficeStartTime).TotalHours - (config.BreaktimeMax / 60.0);
+                // Night differential calculation
+                DateTime nightStart = DateTime.Today.Add(config.NightDifStartTime);
+                DateTime nightEnd = config.NightDifEndTime > config.NightDifStartTime
+                    ? DateTime.Today.Add(config.NightDifEndTime)
+                    : DateTime.Today.AddDays(1).Add(config.NightDifEndTime);
+
+                // Calculate effective night differential period
+                DateTime effectiveNightStart = workStart > nightStart ? workStart : nightStart;
+                DateTime effectiveNightEnd = workEnd < nightEnd ? workEnd : nightEnd;
+
+                int nightDifferentialMinutes = effectiveNightStart < effectiveNightEnd
+                    ? (int)(effectiveNightEnd - effectiveNightStart).TotalMinutes
+                    : 0;
+
+                attendance.NightDifDuration = nightDifferentialMinutes;
+                user.AccumulatedNightDifferential += nightDifferentialMinutes;
+
+                // Total work duration in minutes
+                int totalWorkMinutes = (int)(workEnd - workStart).TotalMinutes - breakMinutes;
+                int regularWorkMinutes = (int)((config.OfficeEndTime - config.OfficeStartTime).TotalMinutes - config.BreaktimeMax);
+
+                int actualOvertimeMinutes = Math.Max(0, totalWorkMinutes - regularWorkMinutes);
+
                 var approvedOvertime = await _context.Overtimes
                     .FirstOrDefaultAsync(o => o.UserId == userId && o.Date.Date == attendance.ClockIn.Date && o.Status == OvertimeRequestStatus.Approved);
 
-                double actualOvertimeWorked = Math.Max(0, totalWorkHours - regularWorkHours);
-                double overtimeHours = (approvedOvertime != null)
-                    ? Math.Min(actualOvertimeWorked, Math.Min((approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours, config.OvertimeDailyMax))
-                    : 0;
+                int approvedOvertimeMinutes = 0;
 
-                user.AccumulatedOvertime += overtimeHours;
+                if (approvedOvertime != null)
+                {
+                    approvedOvertimeMinutes = (int)Math.Min(actualOvertimeMinutes,
+                        Math.Min((approvedOvertime.EndTime - approvedOvertime.StartTime).TotalMinutes, config.OvertimeDailyMax));
+                }
+
+                user.AccumulatedOvertime += approvedOvertimeMinutes;
+
                 await _context.SaveChangesAsync();
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Attendance")
                     .Information("{UserName} clocked out at {Time}", username, DateTime.Now);
 
+                // Format Minutes to "Xh Ym"
+                string FormatMinutes(double minutes) => $"{minutes / 60}h {minutes % 60}m";
+
                 return Ok(ApiResponse<object>.Success(new
                 {
                     message = "Clock-out recorded successfully.",
-                    totalWorkHours = $"{(int)totalWorkDuration.TotalHours}h {(int)(totalWorkDuration.TotalMinutes % 60)}m",
+                    totalWorkTime = FormatMinutes(totalWorkMinutes),
                     approvedOvertime = approvedOvertime != null,
-                    approvedOvertimeDuration = approvedOvertime != null ? $"{(approvedOvertime.EndTime - approvedOvertime.StartTime).TotalHours:F2}h" : "0h",
-                    actualOvertimeWorked = $"{actualOvertimeWorked:F2}h",
-                    overtimeAdded = $"{overtimeHours:F2}h",
-                    newAccumulatedOvertime = $"{Math.Floor(user.AccumulatedOvertime)}h {Math.Round((user.AccumulatedOvertime % 1) * 60)}m"
+                    approvedOvertimeDuration = FormatMinutes(approvedOvertimeMinutes),
+                    actualOvertimeWorked = FormatMinutes(actualOvertimeMinutes),
+                    overtimeAdded = FormatMinutes(approvedOvertimeMinutes),
+                    nightDifferential = FormatMinutes(nightDifferentialMinutes),
+                    newAccumulatedOvertime = FormatMinutes(user.AccumulatedOvertime),
+                    newAccumulatedNightDifferential = FormatMinutes(user.AccumulatedNightDifferential)
                 }));
             }
             catch (Exception ex)

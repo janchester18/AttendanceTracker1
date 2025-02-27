@@ -61,14 +61,14 @@ namespace AttendanceTracker1.Controllers
 
                 var response = ApiResponse<object>.Success(new
                 {
-                    data = overtimes,
+                    overtimes,
                     totalRecords,
                     totalPages,
                     currentPage = page,
                     pageSize,
                     hasNextPage = page < totalPages,
                     hasPreviousPage = page > 1
-                });
+                }, "Overtime data request successful.");
 
                 return Ok(response);
             }
@@ -112,10 +112,10 @@ namespace AttendanceTracker1.Controllers
 
                 if (overtime == null)
                 {
-                    return NotFound("Overtime request not found.");
+                    return NotFound(ApiResponse<object>.Failed("Overtime request not found."));
                 }
 
-                return Ok(ApiResponse<object>.Success(overtime));
+                return Ok(ApiResponse<object>.Success(overtime, "Overtime data request successful."));
             }
             catch (Exception ex)
             {
@@ -131,6 +131,12 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+                if(user == null)
+                {
+                    return Ok(ApiResponse<object>.Failed("User not found."));
+                }
+
                 var overtime = await _context.Overtimes
                 .Where(o => o.UserId == id)
                 .Include(o => o.User)
@@ -154,7 +160,7 @@ namespace AttendanceTracker1.Controllers
                 })
                 .ToListAsync();
 
-                return Ok(ApiResponse<object>.Success(overtime));
+                return Ok(ApiResponse<object>.Success(overtime, "Overtime data request successful."));
             }
             catch (Exception ex)
             {
@@ -171,7 +177,7 @@ namespace AttendanceTracker1.Controllers
             {
                 if (overtimeRequest.StartTime >= overtimeRequest.EndTime)
                 {
-                    return BadRequest("Start time must be before end time.");
+                    return Ok(ApiResponse<object>.Failed("Start time must be before end time."));
                 }
 
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -179,7 +185,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Failed("Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -206,9 +212,7 @@ namespace AttendanceTracker1.Controllers
                     .Information("{UserName} has requested an overtime at {Time}", username, DateTime.Now);
 
                 return Ok(ApiResponse<object>.Success(new 
-                    { Message = "Overtime request submitted successfully.", 
-                    OvertimeId = overtime.Id 
-                }));
+                    { OvertimeId = overtime.Id }, "Overtime request submitted successfully."));
             }
             catch (Exception ex)
             {
@@ -218,7 +222,7 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpPut("review/{id}")]
-        [Authorize]
+        [Authorize (Roles="Admin")]
         public async Task<IActionResult> Review(int id, [FromBody] OvertimeReview request)
         {
             try
@@ -226,20 +230,20 @@ namespace AttendanceTracker1.Controllers
                 var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
                 if (overtime == null)
                 {
-                    return NotFound("User not found.");
+                    return Ok(ApiResponse<object>.Failed("User not found."));
                 }
 
                 // ✅ Validate if status is a valid enum value
                 if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status))
                 {
-                    return BadRequest("Invalid leave status.");
+                    return Ok(ApiResponse<object>.Failed("Invalid leave status."));
                 }
 
                 // Check if RejectionReason is provided when status is Rejected
                 if (request.Status == OvertimeRequestStatus.Rejected &&
                     string.IsNullOrWhiteSpace(request.RejectionReason))
                 {
-                    return BadRequest("Rejection reason is required when status is Rejected.");
+                    return Ok(ApiResponse<object>.Failed("Rejection reason is required when status is Rejected."));
                 }
 
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -247,7 +251,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized("Invalid token.");
+                    return Ok(ApiResponse<object>.Failed("Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);

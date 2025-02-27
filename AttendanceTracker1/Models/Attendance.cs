@@ -66,6 +66,8 @@ namespace AttendanceTracker1.Models
 
         public double LateDuration { get; set; } = 0.0;
 
+        public double NightDifDuration { get; set; } = 0.0;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
 
