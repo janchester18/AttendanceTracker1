@@ -112,7 +112,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (overtime == null)
                 {
-                    return NotFound(ApiResponse<object>.Failed("Overtime request not found."));
+                    return Ok(ApiResponse<object>.Success(null, "Overtime request not found."));
                 }
 
                 return Ok(ApiResponse<object>.Success(overtime, "Overtime data request successful."));
@@ -134,7 +134,7 @@ namespace AttendanceTracker1.Controllers
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
                 if(user == null)
                 {
-                    return Ok(ApiResponse<object>.Failed("User not found."));
+                    return Ok(ApiResponse<object>.Success(null, "User not found."));
                 }
 
                 var overtime = await _context.Overtimes
@@ -177,7 +177,7 @@ namespace AttendanceTracker1.Controllers
             {
                 if (overtimeRequest.StartTime >= overtimeRequest.EndTime)
                 {
-                    return Ok(ApiResponse<object>.Failed("Start time must be before end time."));
+                    return Ok(ApiResponse<object>.Success(null, "Start time must be before end time."));
                 }
 
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -185,7 +185,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Ok(ApiResponse<object>.Failed("Invalid token."));
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
                 }
 
                 var userId = int.Parse(userIdClaim);
@@ -228,31 +228,20 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
-                if (overtime == null)
-                {
-                    return Ok(ApiResponse<object>.Failed("User not found."));
-                }
+                if (overtime == null) return Ok(ApiResponse<object>.Success(null, "User not found."));
 
                 // ✅ Validate if status is a valid enum value
-                if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status))
-                {
-                    return Ok(ApiResponse<object>.Failed("Invalid leave status."));
-                }
+                if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status)) return Ok(ApiResponse<object>.Success(null, "Invalid leave status."));
 
                 // Check if RejectionReason is provided when status is Rejected
                 if (request.Status == OvertimeRequestStatus.Rejected &&
-                    string.IsNullOrWhiteSpace(request.RejectionReason))
-                {
-                    return Ok(ApiResponse<object>.Failed("Rejection reason is required when status is Rejected."));
-                }
+                    string.IsNullOrWhiteSpace(request.RejectionReason)) return Ok(ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
 
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value;
 
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Ok(ApiResponse<object>.Failed("Invalid token."));
-                }
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) 
+                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
 
                 var userId = int.Parse(userIdClaim);
 
@@ -268,9 +257,7 @@ namespace AttendanceTracker1.Controllers
                     .ForContext("Type", "Overtime")
                     .Information("{UserName} has {Action} overtime {Id} at {Time}", username, action, id, DateTime.Now);
 
-                return Ok(ApiResponse<object>.Success(new 
-                    { message = $"Overtime request {id} has been {overtime.Status}." 
-                }));
+                return Ok(ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}." ));
             }
             catch (Exception ex)
             {

@@ -70,7 +70,7 @@ namespace AttendanceTracker1.Controllers
                     pageSize,
                     hasNextPage = page < totalPages,
                     hasPreviousPage = page > 1
-                });
+                }, "User list request successful.");
 
                 return Ok(response);
             }
