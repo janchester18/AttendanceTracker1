@@ -45,6 +45,8 @@ builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<IHolidayService, HolidayService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddScoped<IOvertimeService, OvertimeService>();
+builder.Services.AddScoped<IOvertimeConfigService, OvertimeConfigService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
