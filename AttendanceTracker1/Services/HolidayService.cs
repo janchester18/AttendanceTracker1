@@ -73,7 +73,7 @@ namespace AttendanceTracker1.Services
             return (ApiResponse<object>.Success(holiday, $"Holiday successfully created."));
         }
 
-        public async Task<ApiResponse<object>> EditHoliday(int id, [FromBody] EditHolidayDto request)
+        public async Task<ApiResponse<object>> EditHoliday(int id, EditHolidayDto request)
         {
             var holiday = await _context.Holidays.FirstOrDefaultAsync(h => h.Id == id);
 

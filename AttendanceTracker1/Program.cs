@@ -43,6 +43,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // SERVICES
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<IHolidayService, HolidayService>();
+builder.Services.AddScoped<ILeaveService, LeaveService>();
+
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 // 🔹 JWT Configuration

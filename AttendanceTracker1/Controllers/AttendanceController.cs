@@ -15,12 +15,10 @@ namespace AttendanceTracker1.Controllers
     public class AttendanceController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<AttendanceController> _logger;
 
         public AttendanceController(ApplicationDbContext context, ILogger<AttendanceController> logger)
         {
             _context = context;
-            _logger = logger;
         }
 
         [HttpGet]

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AttendanceTracker1.DTO;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -43,6 +44,12 @@ namespace AttendanceTracker1.Filters
             {
                 if (prop.PropertyType == typeof(string))
                 {
+                    // Skip validation for the "Body" property of EmailRequestDto
+                    if (obj is EmailRequestDto && prop.Name == "Body")
+                    {
+                        continue;
+                    }
+
                     var value = prop.GetValue(obj) as string;
                     if (!string.IsNullOrEmpty(value) && SqlInjectionRegex.IsMatch(value))
                     {
