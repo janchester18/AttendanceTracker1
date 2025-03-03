@@ -44,6 +44,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<IHolidayService, HolidayService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddScoped<IOvertimeService, OvertimeService>();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 

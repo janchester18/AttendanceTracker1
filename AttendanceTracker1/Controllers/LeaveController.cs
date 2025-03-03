@@ -99,8 +99,7 @@ namespace AttendanceTracker1.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
-            }
-            
+            } 
         }
     }
 }
