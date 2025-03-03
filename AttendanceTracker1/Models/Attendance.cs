@@ -71,6 +71,8 @@ namespace AttendanceTracker1.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
 
+        public VisibilityStatus VisibilityStatus { get; set; } = VisibilityStatus.Enabled;
+
         /// <summary>
         /// Returns a formatted string representation of the work duration.
         /// </summary>
@@ -125,6 +127,20 @@ namespace AttendanceTracker1.Models
                 return $"{hours}h {minutes}m";
             }
         }
+
+        /// <summary>
+        /// Returns a formatted string representation of the late duration.
+        /// </summary>
+        public string FormattedNightDifDuration
+        {
+            get
+            {
+                int hours = (int)(NightDifDuration / 60);
+                int minutes = (int)(NightDifDuration % 60);
+
+                return $"{hours}h {minutes}m";
+            }
+        }
     }
 
     public enum AttendanceStatus
@@ -133,5 +149,11 @@ namespace AttendanceTracker1.Models
         Absent = 2,
         Late = 3,
         OnLeave = 4
+    }
+
+    public enum VisibilityStatus
+    {
+        Disabled = 0,
+        Enabled = 1,
     }
 }

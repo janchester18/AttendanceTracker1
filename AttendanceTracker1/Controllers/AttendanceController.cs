@@ -24,23 +24,37 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        [Authorize]
         public async Task<IActionResult> GetAttendances(int page = 1, int pageSize = 10)
         {
             try
             {
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (string.IsNullOrEmpty(role)) return Ok(ApiResponse<object>.Success(null, "Invalid token"));
+
                 var skip = (page - 1) * pageSize;
 
-                var totalRecords = await _context.Attendances.CountAsync();
+                IQueryable<Attendance> query = _context.Attendances
+                    .Include(a => a.User);
 
-                var attendances = await _context.Attendances
-                    .Include(a => a.User)
-                    .OrderBy(a => a.CreatedAt)
+                if (role == "Employee")
+                {
+                    // Employees should only see enabled records
+                    query = query.Where(a => a.VisibilityStatus == VisibilityStatus.Enabled);
+                }
+
+                // Order by VisibilityStatus (Disabled at the end) then by CreatedAt
+                query = query.OrderBy(a => a.VisibilityStatus == VisibilityStatus.Disabled)
+                             .ThenBy(a => a.CreatedAt);
+
+                var totalRecords = await query.CountAsync();
+
+                var attendances = await query
                     .Skip(skip)
                     .Take(pageSize)
                     .Select(a => new
                     {
-                        a.Id, // Attendance ID
+                        a.Id,
                         a.UserId,
                         User = new
                         {
@@ -54,14 +68,16 @@ namespace AttendanceTracker1.Controllers
                         a.BreakFinish,
                         a.FormattedWorkDuration,
                         a.FormattedLateDuration,
+                        a.FormattedNightDifDuration,
                         Status = a.Status.ToString(),
-                        a.Remarks
+                        a.Remarks,
+                        // Only include VisibilityStatus for Admins
+                        VisibilityStatus = role == "Admin" ? a.VisibilityStatus.ToString() : null
                     })
                     .ToListAsync();
 
                 var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
-                // Wrap the result in ApiResponse
                 var response = ApiResponse<object>.Success(new
                 {
                     attendances,
@@ -73,15 +89,15 @@ namespace AttendanceTracker1.Controllers
                     hasPreviousPage = page > 1
                 }, "Attendance data request successful.");
 
-                return Ok(response); // Returning the standardized API response
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                // Handle any exceptions and return a failed response
                 var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse); // Return internal server error with failed status
+                return StatusCode(500, errorResponse);
             }
         }
+
 
         [HttpGet("user/{id}")]
         [Authorize]
@@ -90,18 +106,34 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
-                if(user == null)
+                if(user == null) return Ok(ApiResponse<object>.Success(null,"User not found."));
+
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (string.IsNullOrEmpty(role)) return Ok(ApiResponse<object>.Success(null, "Invalid token"));
+
+                IQueryable<Attendance> query = _context.Attendances
+                   .Include(a => a.User);
+
+                if (role == "Employee")
                 {
-                    return Ok(ApiResponse<object>.Success("User not found."));
+                    // Employees should only see enabled records
+                    query = query.Where(a => a.VisibilityStatus == VisibilityStatus.Enabled);
                 }
 
-                var attendance = await _context.Attendances
+                // Order by VisibilityStatus (Disabled at the end) then by CreatedAt
+                query = query.OrderBy(a => a.VisibilityStatus == VisibilityStatus.Disabled)
+                             .ThenBy(a => a.CreatedAt);
+
+                var totalRecords = await query.Where(a => a.UserId == id).CountAsync();
+
+                var attendance = await query
                 .Where(a => a.UserId == id)
                 .Include(a => a.User)
                 .Select(a => new
                 {
 
                     a.UserId,
+                    a.Id,
                     User = new
                     {
                         a.User.Name,
@@ -115,11 +147,14 @@ namespace AttendanceTracker1.Controllers
                     a.FormattedWorkDuration,
                     a.FormattedLateDuration,
                     Status = a.Status.ToString(),
-                    a.Remarks
+                    a.Remarks,
+                    VisibilityStatus = role == "Admin" ? a.VisibilityStatus.ToString() : null
                 })
                     .ToListAsync();
 
-                    return Ok(ApiResponse<object>.Success(attendance, "Attendance data request successful."));
+                if(totalRecords == 0) return Ok(ApiResponse<object>.Success(null, "No attendance records for this user."));
+
+                return Ok(ApiResponse<object>.Success(attendance, "Attendance data request successful."));
             }
             catch (Exception ex)
             {
@@ -127,7 +162,6 @@ namespace AttendanceTracker1.Controllers
                 var errorResponse = ApiResponse<object>.Failed(ex.Message);
                 return StatusCode(500, errorResponse); // Return internal server error with failed status
             }
-            
         }
 
         [HttpGet("{id}")]
@@ -136,8 +170,19 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
+                var role = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (string.IsNullOrEmpty(role)) return Ok(ApiResponse<object>.Success(null, "Invalid token"));
 
-                var attendance = await _context.Attendances
+                IQueryable<Attendance> query = _context.Attendances
+                   .Include(a => a.User);
+
+                if (role == "Employee") query = query.Where(a => a.VisibilityStatus == VisibilityStatus.Enabled);
+
+                // Order by VisibilityStatus (Disabled at the end) then by CreatedAt
+                query = query.OrderBy(a => a.VisibilityStatus == VisibilityStatus.Disabled)
+                             .ThenBy(a => a.CreatedAt);
+
+                var attendance = await query
                 .Where(a => a.Id == id)
                 .Include(a => a.User)
                 .Select(a => new
@@ -157,7 +202,8 @@ namespace AttendanceTracker1.Controllers
                     a.FormattedWorkDuration,
                     a.FormattedLateDuration,
                     Status = a.Status.ToString(),
-                    a.Remarks
+                    a.Remarks,
+                    VisibilityStatus = role == "Admin" ? a.VisibilityStatus.ToString() : null
                 })
                 .FirstOrDefaultAsync();
 
@@ -296,16 +342,16 @@ namespace AttendanceTracker1.Controllers
                 if (attendance.ClockOut.HasValue) return Ok(ApiResponse<object>.Success(null, "You have already clocked out."));
 
                 //for testing dummy clock out time
-                if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
-                {
-                    attendance.ClockOut = parsedClockOut;
-                }
-                else
-                {
-                    return Ok(ApiResponse<object>.Success(null, "Invalid clock-out time format."));
-                }
+                //if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
+                //{
+                //    attendance.ClockOut = parsedClockOut;
+                //}
+                //else
+                //{
+                //    return Ok(ApiResponse<object>.Success(null, "Invalid clock-out time format."));
+                //}
 
-                //attendance.ClockOut = DateTime.Now;
+                attendance.ClockOut = DateTime.Now;
                 attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
                 attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
@@ -552,6 +598,37 @@ namespace AttendanceTracker1.Controllers
                     .Information("Attendance {Id} has been edited by {AdminName}", id, adminName);
 
                 return Ok(ApiResponse<object>.Success(response, "Attendance Record updated successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
+        [HttpPut("update-status/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateAttendanceVisibility(int id, [FromBody] UpdateAttendanceVisibilityDto request)
+        {
+            try
+            {
+                var adminName = User.FindFirst(ClaimTypes.Name)?.Value;
+                if (string.IsNullOrEmpty(adminName)) return Ok(ApiResponse<object>.Success(null, "Invalid token."));
+
+                var attendance = await _context.Attendances.FindAsync(id);
+                if (attendance == null) return Ok(ApiResponse<object>.Success(null, "Attendance Record not Found"));
+                if (attendance.VisibilityStatus == request.VisibilityStatus) return Ok(ApiResponse<object>.Success(null, "Visibility status is already set to the requested value."));
+                if (request.VisibilityStatus != VisibilityStatus.Disabled && request.VisibilityStatus != VisibilityStatus.Enabled) return Ok(ApiResponse<object>.Success(null, "Invalid visibility status."));
+
+                var action = request.VisibilityStatus.ToString(); 
+
+                attendance.VisibilityStatus = request.VisibilityStatus;
+                await _context.SaveChangesAsync();
+
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Attendance")
+                    .Information("Attendance {Id} has been {Action} by {AdminName}", id, action, adminName);
+
+                return Ok(ApiResponse<object>.Success(null, "Attendance record visibility status updated successfully."));
             }
             catch (Exception ex)
             {
