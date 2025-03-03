@@ -1,6 +1,7 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,32 +14,25 @@ namespace AttendanceTracker1.Controllers
     [Authorize(Roles ="Admin")]
     public class LogController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly ILogger<LogController> _logger;
+        private readonly ILogService _logService;
 
-        public LogController(ApplicationDbContext context, ILogger<LogController> logger)
+        public LogController(ILogService logService)
         {
-            _context = context;
-            _logger = logger;
+            _logService = logService;
         }
         [HttpGet]
         public async Task<IActionResult> GetLogs(int page = 1, int pageSize = 50)
         {
+            try
+            {
+                var logs = await _logService.GetLogs(page, pageSize);
+                return Ok(ApiResponse<object>.Success(logs, "Log records requested successfully."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
 
-                var logs = await _context.Logs
-                    .OrderByDescending(l => l.Timestamp)
-                    .Skip((page - 1) * pageSize)
-                    .Take(pageSize)
-                    .Select(l => new LogResponseDto
-                    {
-                        Id = l.Id,
-                        Message = l.Message,
-                        Timestamp = l.Timestamp,
-                        Type = l.Type
-                    })
-                    .ToListAsync();
-
-            return Ok(ApiResponse<object>.Success(logs, "Log records requested successfully."));
         }
     }
 }

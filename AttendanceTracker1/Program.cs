@@ -40,6 +40,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// SERVICES
+builder.Services.AddScoped<ILogService, LogService>();
+builder.Services.AddScoped<IHolidayService, HolidayService>();
+
+
 // 🔹 JWT Configuration
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var key = Encoding.ASCII.GetBytes(jwtSettings.GetValue<string>("Key") ?? throw new Exception("JWT Key is missing"));
@@ -167,6 +172,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         return new BadRequestObjectResult(result);
     };
 });
+
+builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 

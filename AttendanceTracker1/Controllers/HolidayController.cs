@@ -2,6 +2,7 @@
 using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +15,11 @@ namespace AttendanceTracker1.Controllers
     [ApiController]
     public class HolidayController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IHolidayService _holidayService;
 
-        public HolidayController(ApplicationDbContext context)
+        public HolidayController(IHolidayService holidayService)
         {
-            _context = context;
+            _holidayService = holidayService;
         }
 
         [HttpGet]
@@ -27,34 +28,12 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var skip = (page - 1) * pageSize;
-
-                var totalRecords = await _context.Holidays.CountAsync();
-
-                var holidays = await _context.Holidays
-                    .Skip(skip)
-                    .Take(pageSize)
-                    .ToListAsync();
-
-                var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
-
-                var response = ApiResponse<object>.Success(new
-                {
-                    holidays,
-                    totalRecords,
-                    totalPages,
-                    currentPage = page,
-                    pageSize,
-                    hasNextPage = page < totalPages,
-                    hasPreviousPage = page > 1
-                }, "Holiday data requested successfully.");
-
+                var response = await _holidayService.GetHolidays(page, pageSize);
                 return Ok(response);
             }
             catch (Exception ex) 
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
         }
 
@@ -64,39 +43,13 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var holiday = new Holiday
-                {
-                    Name = request.Name,
-                    Date = request.Date,
-                    IsPaid = request.IsPaid,
-                    IsNational = request.IsNational,
-                    Type = request.Type,
-                    UpdatedAt = DateTime.Now
-                };
+                var response = await _holidayService.AddHoliday(request);
 
-                _context.Holidays.Add(holiday);
-                await _context.SaveChangesAsync();
-
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var username = User.FindFirst(ClaimTypes.Name)?.Value;
-
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
-                }
-
-                var userId = int.Parse(userIdClaim);
-
-                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
-                   .ForContext("Type", "Holiday")
-                   .Information("{UserName} has added holiday {Id} at {Time}", username, holiday.Id, DateTime.Now);
-
-                return Ok(ApiResponse<object>.Success(holiday, $"Holiday successfully created."));
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
         }
 
@@ -106,47 +59,9 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var holiday = await _context.Holidays.FirstOrDefaultAsync(h => h.Id == id);
+                var response = await _holidayService.EditHoliday(id, request);
 
-                if (holiday == null)
-                {
-                    return Ok(ApiResponse<object>.Success(null, "Holiday not found."));
-                }
-
-                holiday.Name = request.Name ?? holiday.Name;
-                holiday.Date = request.Date ?? holiday.Date;
-                holiday.IsPaid = request.IsPaid ?? holiday.IsPaid;
-                holiday.IsNational = request.IsNational ?? holiday.IsNational;
-                holiday.Type = request.Type ?? holiday.Type;
-                holiday.UpdatedAt = DateTime.Now;
-
-                await _context.SaveChangesAsync();
-
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var username = User.FindFirst(ClaimTypes.Name)?.Value;
-
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Ok(ApiResponse<object>.Success(null, "Invalid token."));
-                }
-
-                var userId = int.Parse(userIdClaim);
-
-                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
-                   .ForContext("Type", "Holiday")
-                   .Information("{UserName} has edited holiday {Id} at {Time}", username, holiday.Id, DateTime.Now);
-
-                var response = new
-                {
-                    name = holiday.Name,
-                    date = holiday.Date,
-                    isPaid = holiday.IsPaid,
-                    isNational = holiday.IsNational,
-                    type = holiday.Type,
-                    updatedAt = holiday.UpdatedAt
-                };
-
-                return Ok(ApiResponse<object>.Success(response, "Holiday has been updated successfully."));
+                return Ok(response);
             }
             catch (Exception ex)
             {
