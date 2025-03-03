@@ -3,6 +3,7 @@ using System.Security.Claims;
 using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +16,10 @@ namespace AttendanceTracker1.Controllers
     [Authorize(Roles = "Admin")]
     public class OvertimeConfigController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        public OvertimeConfigController(ApplicationDbContext context)
+        private readonly IOvertimeConfigService _overtimeconfigservice;
+        public OvertimeConfigController(IOvertimeConfigService overtimeConfigService)
         {
-            _context = context;
+            _overtimeconfigservice = overtimeConfigService;
         }
 
         [HttpGet]
@@ -26,14 +27,12 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var config = await _context.OvertimeConfigs.ToListAsync();
-
-                return Ok(ApiResponse<object>.Success(config, "Config record requested successfully."));
+                var response = await _overtimeconfigservice.GetOvertimeConfig();
+                return Ok(response);
             }
             catch(Exception ex)
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
 
         }
@@ -43,35 +42,12 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-
-                if (config == null) return Ok(ApiResponse<object>.Success(null, "Overtime configuration not found."));
-
-                config.OvertimeDailyMax = updatedConfig.OvertimeDailyMax ?? config.OvertimeDailyMax;
-                config.BreaktimeMax = updatedConfig.BreaktimeMax ?? config.BreaktimeMax;
-                config.OfficeStartTime = updatedConfig.OfficeStartTime ?? config.OfficeStartTime;
-                config.OfficeEndTime = updatedConfig.OfficeEndTime ?? config.OfficeEndTime;
-                config.UpdatedAt = DateTime.Now;
-
-                await _context.SaveChangesAsync();
-
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var username = User.FindFirst(ClaimTypes.Name)?.Value;
-
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) return Ok(ApiResponse<object>.Success(null, "Invalid token."));
-
-                var userId = int.Parse(userIdClaim);
-
-                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
-                    .ForContext("Type", "Config")
-                    .Information("{UserName} has updated the config at {Time}", username, DateTime.Now);
-
-                return Ok(ApiResponse<object>.Success(config, "Config has been updated successfully."));
+                var response = await _overtimeconfigservice.UpdateConfig(updatedConfig);
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                var errorResponse = ApiResponse<object>.Failed(ex.Message);
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
         }
     }

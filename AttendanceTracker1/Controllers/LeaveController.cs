@@ -16,12 +16,10 @@ namespace AttendanceTracker1.Controllers
     public class LeaveController : ControllerBase
     {
         private readonly ILeaveService _leaveService;
-        private readonly ApplicationDbContext _context;
         
-        public LeaveController(ILeaveService leaveService, ApplicationDbContext context)
+        public LeaveController(ILeaveService leaveService)
         {
             _leaveService = leaveService;
-            _context = context;
         }
 
         [HttpGet]

@@ -15,11 +15,9 @@ namespace AttendanceTracker1.Controllers
     [ApiController]
     public class OvertimeController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
         private readonly IOvertimeService _overtimeService;
-        public OvertimeController(ApplicationDbContext context, IOvertimeService overtimeService)
+        public OvertimeController(IOvertimeService overtimeService)
         {
-            _context = context;
             _overtimeService = overtimeService;
         }
 
