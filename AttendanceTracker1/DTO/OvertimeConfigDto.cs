@@ -6,10 +6,10 @@ namespace AttendanceTracker1.DTO
     {
 
         public double? OvertimeDailyMax { get; set; }
-        public double? BreaktimeMax { get; set; }
-        public TimeSpan? OfficeStartTime { get; set; }  // Office opening time
-        public TimeSpan? OfficeEndTime { get; set; }    // Office closing time
-        public TimeSpan? NightDifStartTime { get; set; }  // Office opening time
-        public TimeSpan? NightDifEndTime { get; set; }    // Office closing time
+        public double? BreakMax { get; set; }  
+        public TimeSpan? OfficeStartTime { get; set; }  
+        public TimeSpan? OfficeEndTime { get; set; }    
+        public TimeSpan? NightDifStartTime { get; set; }  
+        public TimeSpan? NightDifEndTime { get; set; }    
     }
 }

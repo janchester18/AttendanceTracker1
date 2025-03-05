@@ -11,10 +11,12 @@ namespace AttendanceTracker1.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public OvertimeConfigService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        private readonly INotificationService _notificationService;
+        public OvertimeConfigService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, INotificationService notificationService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
 
         public async Task<ApiResponse<object>> GetOvertimeConfig()
@@ -30,7 +32,7 @@ namespace AttendanceTracker1.Services
             if (config == null) return (ApiResponse<object>.Success(null, "Overtime configuration not found."));
 
             config.OvertimeDailyMax = updatedConfig.OvertimeDailyMax ?? config.OvertimeDailyMax;
-            config.BreaktimeMax = updatedConfig.BreaktimeMax ?? config.BreaktimeMax;
+            config.BreakMax = updatedConfig.BreakMax ?? config.BreakMax;
             config.OfficeStartTime = updatedConfig.OfficeStartTime ?? config.OfficeStartTime;
             config.OfficeEndTime = updatedConfig.OfficeEndTime ?? config.OfficeEndTime;
             config.UpdatedAt = DateTime.Now;
@@ -44,6 +46,16 @@ namespace AttendanceTracker1.Services
             if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim)) return (ApiResponse<object>.Success(null, "Invalid token."));
 
             var userId = int.Parse(adminIdClaim);
+
+            var notificationMessage = $"{adminUsername} has updated the configuration.";
+
+            var notification = await _notificationService.CreateAdminNotification(
+                title: "Configuration Update",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                createdById: userId,
+                type: "Configuration Update"
+            );
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Config")

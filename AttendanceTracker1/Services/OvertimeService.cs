@@ -25,13 +25,12 @@ namespace AttendanceTracker1.Services
 
             var totalRecords = await _context.Overtimes.CountAsync();
 
-            // Fetch the overtime requests with pagination
             var overtimes = await _context.Overtimes
                 .Include(o => o.User)
                 .Include(o => o.Approver)
-                .OrderBy(o => o.CreatedAt) // Stable ordering
-                .Skip(skip) // Skip the records for the previous pages
-                .Take(pageSize) // Limit the number of records to the page size
+                .OrderBy(o => o.CreatedAt) 
+                .Skip(skip) 
+                .Take(pageSize) 
                 .Select(o => new OvertimeResponseDto
                 {
                     Id = o.Id,
@@ -168,6 +167,7 @@ namespace AttendanceTracker1.Services
                 title: "New Overtime Request",
                 message: notificationMessage,
                 link: "/api/notification/view/{id}",
+                createdById: userId,
                 type: "Overtime Request"
             );
 

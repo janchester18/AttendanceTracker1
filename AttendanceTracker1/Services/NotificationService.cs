@@ -43,11 +43,11 @@ namespace AttendanceTracker1.Services
 
             return ApiResponse<object>.Success(notification, "Notification created successfully");
         }
-        public async Task<ApiResponse<object>> CreateAdminNotification(string title, string message, string type, string? link = null)
+        public async Task<ApiResponse<object>> CreateAdminNotification(string title, string message, string type, string? link = null, int? createdById = null)
         {
             // 🔹 Find all admins
             var adminUsers = await _context.Users
-                .Where(u => u.Role == "Admin") // Adjust based on your role logic
+                .Where(u => u.Role == "Admin" && u.Id != createdById) // Adjust based on your role logic
                 .Select(u => u.Id)
                 .ToListAsync();
 

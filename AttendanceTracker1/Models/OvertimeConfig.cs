@@ -9,7 +9,7 @@ namespace AttendanceTracker1.Models
         [Required]
         public double OvertimeDailyMax { get; set; }
         [Required]
-        public double BreaktimeMax { get; set; }
+        public double BreakMax { get; set; }
         [Required]
         public TimeSpan OfficeStartTime { get; set; }  // Office opening time
         [Required]

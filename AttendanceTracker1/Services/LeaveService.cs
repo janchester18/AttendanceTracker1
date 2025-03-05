@@ -158,6 +158,7 @@ namespace AttendanceTracker1.Services
                 title: "New Leave Request",
                 message: notificationMessage,
                 link: "/api/notification/view/{id}", 
+                createdById: userId,
                 type: "Leave Request"
             );
 

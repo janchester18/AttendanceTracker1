@@ -2,7 +2,11 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Asn1.Cms;
+using System;
 using System.Security.Claims;
+using static Org.BouncyCastle.Math.EC.ECCurve;
+using static System.Collections.Specialized.BitVector32;
 
 namespace AttendanceTracker1.Services
 {
@@ -10,11 +14,13 @@ namespace AttendanceTracker1.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationService _notificationService;
 
-        public AttendanceService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public AttendanceService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, INotificationService notificationService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
 
         public async Task<ApiResponse<object>> GetAttendances(int page, int pageSize)
@@ -246,6 +252,24 @@ namespace AttendanceTracker1.Services
                 int lateMinutes = (int)(lateDuration % 60);
 
                 message = $"Clock-in recorded successfully. However, you are late by {lateHours}h {lateMinutes}m.";
+
+                var adminNotificationMessage = $"{username} has clocked in {lateHours}h {lateMinutes}m late.";
+                var employeeNotificationMessage = $"You clocked in {lateHours}h {lateMinutes}m late.";
+
+                var adminNotification = await _notificationService.CreateAdminNotification(
+                    title: "Employee Late Clock-in",
+                    message: adminNotificationMessage,
+                    link: "/api/notification/view/{id}",
+                    type: "Attendance Alert"
+                );
+
+                var employeeNotification = await _notificationService.CreateNotification(
+                    userId: attendance.UserId,
+                    title: "Late Clock-in",
+                    message: employeeNotificationMessage,
+                    link: "/api/notification/view/{id}",
+                    type: "Attendance Alert"
+                );
             }
 
             _context.Attendances.Add(attendance);
@@ -279,8 +303,10 @@ namespace AttendanceTracker1.Services
             var attendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
-            if (attendance == null) return (ApiResponse<object>.Success(null, "Attendance not found"));
-            if (attendance.ClockOut.HasValue) return (ApiResponse<object>.Success(null, "You have already clocked out."));
+            if (attendance == null) 
+                return (ApiResponse<object>.Success(null, "Attendance not found"));
+            if (attendance.ClockOut.HasValue) 
+                return (ApiResponse<object>.Success(null, "You have already clocked out."));
 
             //for testing dummy clock out time
             //if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
@@ -297,10 +323,12 @@ namespace AttendanceTracker1.Services
             attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) return (ApiResponse<object>.Success(null, "User not found"));
+            if (user == null) 
+                return (ApiResponse<object>.Success(null, "User not found"));
 
             var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-            if (config == null) return (ApiResponse<object>.Success(null, "Overtime configuration not found."));
+            if (config == null) 
+                return (ApiResponse<object>.Success(null, "Overtime configuration not found."));
 
             // Break time calculation in minutes
             int breakMinutes = (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
@@ -330,7 +358,8 @@ namespace AttendanceTracker1.Services
 
             // Total work duration in minutes
             int totalWorkMinutes = (int)(workEnd - workStart).TotalMinutes - breakMinutes;
-            int regularWorkMinutes = (int)((config.OfficeEndTime - config.OfficeStartTime).TotalMinutes - config.BreaktimeMax);
+            int totalBreakDuration = (int)(attendance.BreakFinish - attendance.BreakStart).Value.TotalMinutes;
+            int regularWorkMinutes = (int)((config.OfficeEndTime - config.OfficeStartTime).TotalMinutes - totalBreakDuration);
 
             int actualOvertimeMinutes = Math.Max(0, totalWorkMinutes - regularWorkMinutes);
 
@@ -343,6 +372,36 @@ namespace AttendanceTracker1.Services
             {
                 approvedOvertimeMinutes = (int)Math.Min(actualOvertimeMinutes,
                     Math.Min((approvedOvertime.EndTime - approvedOvertime.StartTime).TotalMinutes, config.OvertimeDailyMax));
+            }
+
+            var message = "You have clocked out successfully.";
+
+            if (attendance.ClockOut.Value.TimeOfDay < config.OfficeEndTime)
+            {
+                TimeSpan missedWorkDuration = config.OfficeEndTime - attendance.ClockOut.Value.TimeOfDay;
+
+                int missedHours = (int)missedWorkDuration.TotalHours;
+                int missedMinutes = missedWorkDuration.Minutes;
+
+                message = $"Clock-out recorded successfully. However, you clocked out {missedHours}h {missedMinutes}m early.";
+
+                var adminNotificationMessage = $"{username} has clocked out {missedHours}h {missedMinutes}m early.";
+                var employeeNotificationMessage = $"You clocked out {missedHours}h {missedMinutes}m early.";
+
+                var adminNotification = await _notificationService.CreateAdminNotification(
+                    title: "Employee Early Clock-out",
+                    message: adminNotificationMessage,
+                    link: "/api/notification/view/{id}",
+                    type: "Attendance Alert"
+                );
+
+                var employeeNotification = await _notificationService.CreateNotification(
+                    userId: attendance.UserId,
+                    title: "Early Clock-out",
+                    message: employeeNotificationMessage,
+                    link: "/api/notification/view/{id}",
+                    type: "Attendance Alert"
+                );
             }
 
             user.AccumulatedOvertime += approvedOvertimeMinutes;
@@ -366,7 +425,7 @@ namespace AttendanceTracker1.Services
                 nightDifferential = FormatMinutes(nightDifferentialMinutes),
                 newAccumulatedOvertime = FormatMinutes(user.AccumulatedOvertime),
                 newAccumulatedNightDifferential = FormatMinutes(user.AccumulatedNightDifferential)
-            }, "Clock-out recorded successfully."));
+            }, message));
         }
         public async Task<ApiResponse<object>> StartBreak()
         {
@@ -396,11 +455,13 @@ namespace AttendanceTracker1.Services
             attendance.BreakStart = DateTime.Now;
             await _context.SaveChangesAsync();
 
+            var message = "Break has started.";
+
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
                 .Information("{UserName} started break at {Time}", username, DateTime.Now);
 
-            return (ApiResponse<object>.Success(new { attendance.BreakStart }, "Break has started."));
+            return (ApiResponse<object>.Success(new { attendance.BreakStart }, message));
         }
         public async Task<ApiResponse<object>> EndBreak()
         {
@@ -419,6 +480,8 @@ namespace AttendanceTracker1.Services
             var attendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
+            var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
+
             if (attendance == null)
                 return (ApiResponse<object>.Success(null, "Attendance not found."));
 
@@ -433,6 +496,37 @@ namespace AttendanceTracker1.Services
 
             attendance.BreakFinish = DateTime.Now;
             await _context.SaveChangesAsync();
+
+            var message = "Break has ended.";
+            double breakDuration = (attendance.BreakFinish.Value.TimeOfDay - attendance.BreakStart.Value.TimeOfDay).TotalMinutes;
+
+            if (breakDuration > config.BreakMax)
+            {
+                double overBreakDuration = breakDuration - config.BreakMax;
+
+                int Hours = (int)overBreakDuration / 60;
+                int Minutes = (int)overBreakDuration % 60;
+
+                message = $"Break has ended. However, you exceeded the maximum break time by {Hours}h {Minutes}m.";
+
+                var adminNotificationMessage = $"{username} exceeded the maximum break time by {Hours}h {Minutes}m.";
+                var employeeNotificationMessage = $"You exceeded the maximum break time by {Hours}h {Minutes}m.";
+
+                var adminNotification = await _notificationService.CreateAdminNotification(
+                    title: "Employee Break Time Exceeded",
+                    message: adminNotificationMessage,
+                    link: "/api/notification/view/{id}",
+                    type: "Attendance Alert"
+                );
+
+                var employeeNotification = await _notificationService.CreateNotification(
+                    userId: attendance.UserId,
+                    title: "Break Time Exceeded",
+                    message: employeeNotificationMessage,
+                    link: "/api/notification/view/{id}",
+                    type: "Attendance Alert"
+                );
+            }
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
@@ -458,6 +552,10 @@ namespace AttendanceTracker1.Services
             var attendance = await _context.Attendances.FindAsync(id);
             if (attendance == null)
                 return (ApiResponse<object>.Success(null, "Attendance Record not Found"));
+
+            var user = await _context.Users.FindAsync(attendance.UserId);
+            if (user == null)
+                return (ApiResponse<object>.Success(null, "User not found."));
 
             // ✅ Parse the ClockIn and ClockOut strings before updating
             if (!string.IsNullOrWhiteSpace(updatedAttendance.ClockIn) && DateTime.TryParse(updatedAttendance.ClockIn, out DateTime clockInValue))
@@ -489,6 +587,27 @@ namespace AttendanceTracker1.Services
             .Where(pair => pair.Value.HasValue)
             .ToList()
             .ForEach(pair => response.Add(pair.Key, pair.Value));
+
+            var attendanceDate = attendance.ClockIn.Date.ToString("MMMM dd, yyyy");
+
+            var adminNotificationMessage = $"{adminName} has edited the attendance record of {user.Name} for {attendanceDate}.";
+            var employeeNotificationMessage = $"{adminName} has edited your attendance record for {attendanceDate}.";
+
+            var adminNotification = await _notificationService.CreateAdminNotification(
+                title: "Attendance Record Update",
+                message: adminNotificationMessage,
+                link: "/api/notification/view/{id}",
+                createdById: adminId,
+                type: "Attendance Update"
+            );
+
+            var employeeNotification = await _notificationService.CreateNotification(
+                userId: attendance.UserId,
+                title: "Attendance Record Update",
+                message: employeeNotificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Attendance Update"
+            );
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
