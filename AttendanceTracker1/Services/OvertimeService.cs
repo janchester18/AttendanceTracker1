@@ -94,10 +94,8 @@ namespace AttendanceTracker1.Services
                })
                .FirstOrDefaultAsync();
 
-            if (overtime == null)
-            {
+            if (overtime == null) 
                 return (ApiResponse<object>.Success(null, "Overtime request not found."));
-            }
 
             return (ApiResponse<object>.Success(overtime, "Overtime data request successful."));
         }
@@ -106,10 +104,8 @@ namespace AttendanceTracker1.Services
         public async Task<ApiResponse<object>> GetOvertimeRequestByUserId(int id)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
-            if (user == null)
-            {
+            if (user == null) 
                 return (ApiResponse<object>.Success(null, "User not found."));
-            }
 
             var overtime = await _context.Overtimes
             .Where(o => o.UserId == id)
@@ -139,19 +135,15 @@ namespace AttendanceTracker1.Services
         // REQUEST OVERTIME SERVICE
         public async Task<ApiResponse<object>> RequestOvertime(OvertimeRequestDto overtimeRequest)
         {
-            if (overtimeRequest.StartTime >= overtimeRequest.EndTime)
-            {
+            if (overtimeRequest.StartTime >= overtimeRequest.EndTime) 
                 return (ApiResponse<object>.Success(null, "Start time must be before end time."));
-            }
 
             var user = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-            {
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) 
                 return (ApiResponse<object>.Success(null, "Invalid token."));
-            }
 
             var userId = int.Parse(userIdClaim);
 
@@ -199,7 +191,8 @@ namespace AttendanceTracker1.Services
 
             // Check if RejectionReason is provided when status is Rejected
             if (request.Status == OvertimeRequestStatus.Rejected &&
-                string.IsNullOrWhiteSpace(request.RejectionReason)) return (ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
+                string.IsNullOrWhiteSpace(request.RejectionReason)) 
+                    return (ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
 
             var admin = _httpContextAccessor.HttpContext?.User;
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
