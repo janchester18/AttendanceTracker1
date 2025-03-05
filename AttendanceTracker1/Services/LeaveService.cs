@@ -84,14 +84,16 @@ namespace AttendanceTracker1.Services
                 })
                 .FirstOrDefaultAsync();
 
-            if (leave == null) return (ApiResponse<object>.Success(null, "Leave record not found."));
+            if (leave == null) 
+                return (ApiResponse<object>.Success(null, "Leave record not found."));
 
             return (ApiResponse<object>.Success(leave, "Leave record requested successfully."));
         }
         public async Task<ApiResponse<object>> GetLeaveRequestByUserId(int id)
         {
             var userExists = await _context.Users.AnyAsync(u => u.Id == id);
-            if (!userExists) return (ApiResponse<object>.Success(null, $"User with ID {id} not found."));
+            if (!userExists) 
+                return (ApiResponse<object>.Success(null, $"User with ID {id} not found."));
 
             var leave = await _context.Leaves
                 .Where(l => l.UserId == id)
@@ -115,7 +117,8 @@ namespace AttendanceTracker1.Services
                 })
                 .ToListAsync();
 
-            if (!leave.Any()) return (ApiResponse<object>.Success(null, $"User with ID {id} has no leave requests."));
+            if (!leave.Any()) 
+                return (ApiResponse<object>.Success(null, $"User with ID {id} has no leave requests."));
 
             return (ApiResponse<object>.Success(leave, "Leave record requested successfully"));
         }
@@ -126,9 +129,7 @@ namespace AttendanceTracker1.Services
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-            {
                 return (ApiResponse<object>.Success(null, "Invalid token."));
-            }
 
             var userId = int.Parse(userIdClaim);
 
@@ -169,20 +170,24 @@ namespace AttendanceTracker1.Services
         public async Task<ApiResponse<object>> Review(int id, LeaveReviewDto request)
         {
             var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
-            if (leave == null) return (ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found."));
+            if (leave == null) 
+                return (ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found."));
 
             // ✅ Validate if status is a valid enum value
-            if (!Enum.IsDefined(typeof(LeaveStatus), request.Status)) return (ApiResponse<object>.Success(null, "Invalid leave status."));
+            if (!Enum.IsDefined(typeof(LeaveStatus), request.Status)) 
+                return (ApiResponse<object>.Success(null, "Invalid leave status."));
 
             // Check if RejectionReason is provided when status is Rejected
             if (request.Status == LeaveStatus.Rejected &&
-                string.IsNullOrWhiteSpace(request.RejectionReason)) return (ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
+                string.IsNullOrWhiteSpace(request.RejectionReason)) 
+                return (ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
 
             var admin = _httpContextAccessor.HttpContext?.User;
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
 
-            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim)) return (ApiResponse<object>.Success(null, "Invalid token."));
+            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim)) 
+                return (ApiResponse<object>.Success(null, "Invalid token."));
 
             var userId = int.Parse(adminIdClaim);
 

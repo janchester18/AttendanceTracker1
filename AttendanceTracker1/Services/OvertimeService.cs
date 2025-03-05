@@ -1,9 +1,7 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using StackExchange.Redis;
 using System.Security.Claims;
 
 namespace AttendanceTracker1.Services
