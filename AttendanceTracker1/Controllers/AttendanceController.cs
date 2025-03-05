@@ -15,12 +15,10 @@ namespace AttendanceTracker1.Controllers
     [ApiController]
     public class AttendanceController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
         private readonly IAttendanceService _attendanceService;
 
-        public AttendanceController(ApplicationDbContext context, IAttendanceService attendanceService)
+        public AttendanceController(IAttendanceService attendanceService)
         {
-            _context = context;
             _attendanceService = attendanceService;
         }
 

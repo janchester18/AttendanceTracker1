@@ -10,10 +10,12 @@ namespace AttendanceTracker1.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public LeaveService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        private readonly INotificationService _notificationService;
+        public LeaveService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, INotificationService notificationService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
         public async Task<ApiResponse<object>> GetLeaveRequests(int page, int pageSize)
         {
@@ -137,7 +139,7 @@ namespace AttendanceTracker1.Services
                 EndDate = request.EndDate,
                 Reason = request.Reason,
                 Type = request.Type,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             };
 
             _context.Leaves.Add(leaveRequest);
@@ -148,6 +150,15 @@ namespace AttendanceTracker1.Services
                 leaveId = leaveRequest.Id,
                 status = leaveRequest.Status.ToString()
             }, "Leave request submitted successfully!");
+
+            var notificationMessage = $"{username} has requested a leave from {request.StartDate:MMM dd, yyyy} to {request.EndDate:MMM dd, yyyy}.";
+
+            var notification = await _notificationService.CreateAdminNotification(
+                title: "New Leave Request",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}", 
+                type: "Leave Request"
+            );
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
@@ -183,6 +194,16 @@ namespace AttendanceTracker1.Services
 
             var action = leave.Status.ToString();
 
+            var notificationMessage = $"{adminUsername} has {action} your leave from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy}.";
+
+            var notification = await _notificationService.CreateNotification(
+                userId: leave.UserId,
+                title: "Leave Review Result",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Leave Review"
+            );
+            
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
                 .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);

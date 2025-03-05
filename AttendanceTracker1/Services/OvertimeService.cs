@@ -3,6 +3,7 @@ using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 using System.Security.Claims;
 
 namespace AttendanceTracker1.Services
@@ -11,12 +12,15 @@ namespace AttendanceTracker1.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public OvertimeService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        private readonly INotificationService _notificationService;
+        public OvertimeService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, INotificationService notificationService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
 
+        //GET OVERTIME REQUESTS SERVICE
         public async Task<ApiResponse<object>> GetOvertimeRequests(int page, int pageSize)
         {
             var skip = (page - 1) * pageSize;
@@ -63,6 +67,8 @@ namespace AttendanceTracker1.Services
                 hasPreviousPage = page > 1
             }, "Overtime data request successful.");
         }
+
+        //GET OVERTIME REQUEST BY ID SERVICE
         public async Task<ApiResponse<object>> GetOvertimeRequestById(int id)
         {
             var overtime = await _context.Overtimes
@@ -95,6 +101,8 @@ namespace AttendanceTracker1.Services
 
             return (ApiResponse<object>.Success(overtime, "Overtime data request successful."));
         }
+
+        //GET OVERTIME REQUEST BY USER ID SERVICE
         public async Task<ApiResponse<object>> GetOvertimeRequestByUserId(int id)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
@@ -127,6 +135,8 @@ namespace AttendanceTracker1.Services
 
             return (ApiResponse<object>.Success(overtime, "Overtime data request successful."));
         }
+
+        // REQUEST OVERTIME SERVICE
         public async Task<ApiResponse<object>> RequestOvertime(OvertimeRequestDto overtimeRequest)
         {
             if (overtimeRequest.StartTime >= overtimeRequest.EndTime)
@@ -162,12 +172,23 @@ namespace AttendanceTracker1.Services
             _context.Overtimes.Add(overtime);
             await _context.SaveChangesAsync();
 
+            var notificationMessage = $"{username} has requested an overtime on {overtimeRequest.Date:MMM dd, yyyy} from {overtimeRequest.StartTime} to {overtimeRequest.EndTime}.";
+
+            var notification = await _notificationService.CreateAdminNotification(
+                title: "New Overtime Request",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Overtime Request"
+            );
+
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Overtime")
                 .Information("{UserName} has requested an overtime at {Time}", username, DateTime.Now);
 
             return (ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request submitted successfully."));
         }
+
+        //OVERTIME REVIEW SERVICE
         public async Task<ApiResponse<object>> Review(int id, OvertimeReview request)
         {
             var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
@@ -196,6 +217,16 @@ namespace AttendanceTracker1.Services
             await _context.SaveChangesAsync();
 
             var action = overtime.Status.ToString();
+            
+            var notificationMessage = $"{adminUsername} has {action} your overtime on {overtime.Date:MMM dd, yyyy} from {overtime.StartTime} to {overtime.EndTime}.";
+            
+            var notification = await _notificationService.CreateNotification(
+                userId: overtime.UserId,
+                title: "Overtime Review Result",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Overtime Review"
+            );
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Overtime")

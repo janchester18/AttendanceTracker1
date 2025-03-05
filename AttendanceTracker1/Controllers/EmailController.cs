@@ -4,6 +4,8 @@ using AttendanceTracker1.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
+//fthm zesj ddwd mtsr  GMAIL SMTP PASSWORD
+
 namespace AttendanceTracker1.Controllers
 {
     [Route("api/[controller]")]
@@ -22,7 +24,7 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                await _emailService.SendEmailAsync(request.To, request.Subject, request.Body);
+                await _emailService.SendEmailAsync(request.Email, request.SenderEmail, request.Name, request.Subject, request.Body);
                 return Ok(ApiResponse<object>.Success(null, "Email sent successfully!"));
             }
             catch (Exception ex)
