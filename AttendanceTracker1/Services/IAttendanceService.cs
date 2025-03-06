@@ -1,7 +1,5 @@
 ﻿using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 namespace AttendanceTracker1.Services
 {

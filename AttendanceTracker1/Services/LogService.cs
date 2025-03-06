@@ -1,6 +1,5 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
-using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceTracker1.Services

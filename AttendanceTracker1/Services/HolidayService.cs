@@ -1,7 +1,6 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
