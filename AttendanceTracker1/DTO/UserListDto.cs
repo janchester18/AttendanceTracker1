@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace AttendanceTracker1.DTO
+﻿namespace AttendanceTracker1.DTO
 {
     public class UserListDto
     {

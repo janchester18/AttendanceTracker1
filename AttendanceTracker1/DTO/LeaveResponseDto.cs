@@ -1,6 +1,4 @@
-﻿using AttendanceTracker1.Models;
-
-namespace AttendanceTracker1.DTO
+﻿namespace AttendanceTracker1.DTO
 {
     public class LeaveResponseDto
     {

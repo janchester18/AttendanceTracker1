@@ -1,6 +1,4 @@
 ﻿using AttendanceTracker1.Models;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace AttendanceTracker1.DTO
