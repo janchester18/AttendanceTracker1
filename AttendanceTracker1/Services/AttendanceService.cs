@@ -2,11 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
-using Org.BouncyCastle.Asn1.Cms;
-using System;
 using System.Security.Claims;
-using static Org.BouncyCastle.Math.EC.ECCurve;
-using static System.Collections.Specialized.BitVector32;
 
 namespace AttendanceTracker1.Services
 {
@@ -597,7 +593,7 @@ namespace AttendanceTracker1.Services
                 title: "Attendance Record Update",
                 message: adminNotificationMessage,
                 link: "/api/notification/view/{id}",
-                createdById: adminId,
+                createdById: adminId, 
                 type: "Attendance Update"
             );
 
