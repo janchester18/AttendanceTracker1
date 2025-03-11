@@ -17,6 +17,7 @@ namespace AttendanceTracker1.Data
         public DbSet<Log> Logs { get; set; }
         public DbSet<Holiday> Holidays { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<CashAdvanceRequest> CashAdvanceRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -31,7 +32,6 @@ namespace AttendanceTracker1.Data
                 .WithOne(l => l.User)
                 .HasForeignKey(l => l.UserId)
                 .OnDelete(DeleteBehavior.Restrict); // Prevents multiple cascade paths
-
 
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Approvals)
