@@ -20,17 +20,13 @@ namespace AttendanceTracker1.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _config;
         private readonly TokenBlacklistService _tokenBlacklistService;
-        private readonly ILogger<AuthController> _logger;
-
         public AuthController(ApplicationDbContext context, 
             IConfiguration config, 
-            TokenBlacklistService tokenBlacklistService,
-            ILogger<AuthController> logger)
+            TokenBlacklistService tokenBlacklistService)
         {
             _context = context;
             _config = config;
             _tokenBlacklistService = tokenBlacklistService;
-            _logger = logger;
         }
 
         [HttpPost("add-user")]
