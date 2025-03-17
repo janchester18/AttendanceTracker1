@@ -4,6 +4,7 @@ using AttendanceTracker1.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AttendanceTracker1.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250313073823_AddedCashAdvancePaymentSchedule")]
+    partial class AddedCashAdvancePaymentSchedule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -134,9 +137,6 @@ namespace AttendanceTracker1.Migrations
 
                     b.Property<int>("MonthsToPay")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("NeededDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -478,7 +478,7 @@ namespace AttendanceTracker1.Migrations
             modelBuilder.Entity("AttendanceTracker1.Models.CashAdvancePaymentSchedule", b =>
                 {
                     b.HasOne("AttendanceTracker1.Models.CashAdvanceRequest", "CashAdvanceRequest")
-                        .WithMany("PaymentSchedule")
+                        .WithMany()
                         .HasForeignKey("CashAdvanceRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -548,11 +548,6 @@ namespace AttendanceTracker1.Migrations
                     b.Navigation("Approver");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("AttendanceTracker1.Models.CashAdvanceRequest", b =>
-                {
-                    b.Navigation("PaymentSchedule");
                 });
 
             modelBuilder.Entity("AttendanceTracker1.Models.User", b =>

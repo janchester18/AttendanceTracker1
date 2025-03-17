@@ -1,6 +1,6 @@
 ﻿using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
-using AttendanceTracker1.Services;
+using AttendanceTracker1.Services.LeaveService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +11,6 @@ namespace AttendanceTracker1.Controllers
     public class LeaveController : ControllerBase
     {
         private readonly ILeaveService _leaveService;
-        
         
         public LeaveController(ILeaveService leaveService)
         {

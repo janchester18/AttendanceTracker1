@@ -15,6 +15,15 @@ using Serilog.Events;
 using System.Collections.ObjectModel;
 using System.Data;
 using Microsoft.AspNetCore.Mvc;
+using AttendanceTracker1.Services.AttendanceService;
+using AttendanceTracker1.Services.EmailService;
+using AttendanceTracker1.Services.HolidayService;
+using AttendanceTracker1.Services.LeaveService;
+using AttendanceTracker1.Services.LogService;
+using AttendanceTracker1.Services.NotificationService;
+using AttendanceTracker1.Services.OvertimeService;
+using AttendanceTracker1.Services.OvertimeConfigService;
+using AttendanceTracker1.Services.CashAdvanceRequestService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +57,8 @@ builder.Services.AddScoped<IOvertimeService, OvertimeService>();
 builder.Services.AddScoped<IOvertimeConfigService, OvertimeConfigService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ICashAdvanceRequestService, CashAdvanceRequestService>();
+
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
@@ -169,15 +180,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                 e => e.Value.Errors.Select(err => err.ErrorMessage).ToArray()
             );
 
-        var result = new
-        {
-            success = false,
-            message = "Validation failed",
-            errors
-        };
-
-        return new BadRequestObjectResult(result);
+        return new OkObjectResult(AttendanceTracker1.Models.ApiResponse<object>.Success(errors, "Validation failed"));
     };
+
 });
 
 builder.Services.AddHttpContextAccessor();

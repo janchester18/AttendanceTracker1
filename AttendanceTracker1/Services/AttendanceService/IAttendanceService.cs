@@ -1,13 +1,14 @@
 ﻿using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.AttendanceService
 {
     public interface IAttendanceService
     {
         public Task<ApiResponse<object>> GetAttendances(int page, int pageSize);
         public Task<ApiResponse<object>> GetAttendanceByUser(int id);
         public Task<ApiResponse<object>> GetAttendanceByAttendanceId(int id);
+        public Task<ApiResponse<object>> GetSelfAttendance(int page, int pageSize);
         public Task<ApiResponse<object>> ClockIn(ClockInDto clockInDto); // notify concerned user and all admins when late
         public Task<ApiResponse<object>> ClockOut(ClockOutDto clockOutDto); // notify  concerned user and all admins when early out
         public Task<ApiResponse<object>> StartBreak();

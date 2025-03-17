@@ -4,6 +4,7 @@ using AttendanceTracker1.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AttendanceTracker1.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250313070829_AddedMonthsToPay")]
+    partial class AddedMonthsToPay
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -88,39 +91,6 @@ namespace AttendanceTracker1.Migrations
                     b.ToTable("Attendances");
                 });
 
-            modelBuilder.Entity("AttendanceTracker1.Models.CashAdvancePaymentSchedule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<int>("CashAdvanceRequestId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CashAdvanceRequestId");
-
-                    b.ToTable("CashAdvancePaymentSchedules");
-                });
-
             modelBuilder.Entity("AttendanceTracker1.Models.CashAdvanceRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -134,9 +104,6 @@ namespace AttendanceTracker1.Migrations
 
                     b.Property<int>("MonthsToPay")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("NeededDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -475,17 +442,6 @@ namespace AttendanceTracker1.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("AttendanceTracker1.Models.CashAdvancePaymentSchedule", b =>
-                {
-                    b.HasOne("AttendanceTracker1.Models.CashAdvanceRequest", "CashAdvanceRequest")
-                        .WithMany("PaymentSchedule")
-                        .HasForeignKey("CashAdvanceRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CashAdvanceRequest");
-                });
-
             modelBuilder.Entity("AttendanceTracker1.Models.CashAdvanceRequest", b =>
                 {
                     b.HasOne("AttendanceTracker1.Models.User", "Approver")
@@ -548,11 +504,6 @@ namespace AttendanceTracker1.Migrations
                     b.Navigation("Approver");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("AttendanceTracker1.Models.CashAdvanceRequest", b =>
-                {
-                    b.Navigation("PaymentSchedule");
                 });
 
             modelBuilder.Entity("AttendanceTracker1.Models.User", b =>

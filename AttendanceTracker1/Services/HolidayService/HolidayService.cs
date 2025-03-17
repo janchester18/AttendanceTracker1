@@ -4,7 +4,7 @@ using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.HolidayService
 {
     public class HolidayService : IHolidayService
     {
@@ -60,7 +60,7 @@ namespace AttendanceTracker1.Services
 
             if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
             {
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
             }
 
             var userId = int.Parse(adminIdClaim);
@@ -69,7 +69,7 @@ namespace AttendanceTracker1.Services
                .ForContext("Type", "Holiday")
                .Information("{UserName} has added holiday {Id} at {Time}", adminUsername, holiday.Id, DateTime.Now);
 
-            return (ApiResponse<object>.Success(holiday, $"Holiday successfully created."));
+            return ApiResponse<object>.Success(holiday, $"Holiday successfully created.");
         }
 
         public async Task<ApiResponse<object>> EditHoliday(int id, EditHolidayDto request)
@@ -78,7 +78,7 @@ namespace AttendanceTracker1.Services
 
             if (holiday == null)
             {
-                return (ApiResponse<object>.Success(null, "Holiday not found."));
+                return ApiResponse<object>.Success(null, "Holiday not found.");
             }
 
             holiday.Name = request.Name ?? holiday.Name;
@@ -96,7 +96,7 @@ namespace AttendanceTracker1.Services
 
             if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
             {
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
             }
 
             var userId = int.Parse(adminIdClaim);
@@ -115,7 +115,7 @@ namespace AttendanceTracker1.Services
                 updatedAt = holiday.UpdatedAt
             };
 
-            return (ApiResponse<object>.Success(response, "Holiday has been updated successfully."));
+            return ApiResponse<object>.Success(response, "Holiday has been updated successfully.");
         }
     }
 }

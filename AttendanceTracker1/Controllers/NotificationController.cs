@@ -1,5 +1,5 @@
 ﻿using AttendanceTracker1.Models;
-using AttendanceTracker1.Services;
+using AttendanceTracker1.Services.NotificationService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

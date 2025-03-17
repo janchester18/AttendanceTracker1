@@ -1,10 +1,11 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.AttendanceService
 {
     public class AttendanceService : IAttendanceService
     {
@@ -23,26 +24,18 @@ namespace AttendanceTracker1.Services
         {
             var user = _httpContextAccessor.HttpContext?.User;
             var role = user?.FindFirst(ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role)) return (ApiResponse<object>.Success(null, "Invalid token"));
+            if (string.IsNullOrEmpty(role)) return ApiResponse<object>.Success(null, "Invalid token");
 
             var skip = (page - 1) * pageSize;
 
-            IQueryable<Attendance> query = _context.Attendances
-                .Include(a => a.User);
 
-            if (role == "Employee")
-            {
-                // Employees should only see enabled records
-                query = query.Where(a => a.VisibilityStatus == VisibilityStatus.Enabled);
-            }
+            var totalRecords = await _context.Attendances.CountAsync();
 
-            // Order by VisibilityStatus (Disabled at the end) then by CreatedAt
-            query = query.OrderBy(a => a.VisibilityStatus == VisibilityStatus.Disabled)
-                         .ThenBy(a => a.CreatedAt);
-
-            var totalRecords = await query.CountAsync();
-
-            var attendances = await query
+            var attendances = await _context.Attendances
+                .Include(a => a.User)
+                .Where(a => role == "Admin" || a.VisibilityStatus == VisibilityStatus.Enabled)
+                .OrderByDescending(a => a.VisibilityStatus == VisibilityStatus.Enabled) 
+                .ThenByDescending(a => a.Date)
                 .Skip(skip)
                 .Take(pageSize)
                 .Select(a => new
@@ -64,8 +57,7 @@ namespace AttendanceTracker1.Services
                     a.FormattedNightDifDuration,
                     Status = a.Status.ToString(),
                     a.Remarks,
-                    // Only include VisibilityStatus for Admins
-                    VisibilityStatus = role == "Admin" ? a.VisibilityStatus.ToString() : null
+                    VisibilityStatus = a.VisibilityStatus.ToString()
                 })
                 .ToListAsync();
 
@@ -87,11 +79,11 @@ namespace AttendanceTracker1.Services
         public async Task<ApiResponse<object>> GetAttendanceByUser(int id)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
-            if (user == null) return (ApiResponse<object>.Success(null, "User not found."));
+            if (user == null) return ApiResponse<object>.Success(null, "User not found.");
 
             var userContext = _httpContextAccessor.HttpContext?.User;
             var role = userContext?.FindFirst(ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role)) return (ApiResponse<object>.Success(null, "Invalid token"));
+            if (string.IsNullOrEmpty(role)) return ApiResponse<object>.Success(null, "Invalid token");
 
             IQueryable<Attendance> query = _context.Attendances
                .Include(a => a.User);
@@ -133,15 +125,88 @@ namespace AttendanceTracker1.Services
             })
                 .ToListAsync();
 
-            if (totalRecords == 0) return (ApiResponse<object>.Success(null, "No attendance records for this user."));
+            if (totalRecords == 0) return ApiResponse<object>.Success(null, "No attendance records for this user.");
 
-            return (ApiResponse<object>.Success(attendance, "Attendance data request successful."));
+            return ApiResponse<object>.Success(attendance, "Attendance data request successful.");
         }
+
+        public async Task<ApiResponse<object>> GetSelfAttendance(int page, int pageSize)
+        {
+            var skip = (page - 1) * pageSize;
+
+            var userContext = _httpContextAccessor.HttpContext?.User;
+            var userId = int.TryParse(_httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int id) ? id : 0;
+            var role = userContext?.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (string.IsNullOrEmpty(role) || userId == 0) return ApiResponse<object>.Success(null, "Invalid token");
+
+            IQueryable<Attendance> query = _context.Attendances
+               .Include(a => a.User);
+
+            if (role == "Employee")
+            {
+                query = query.Where(a => a.VisibilityStatus == VisibilityStatus.Enabled);
+            }
+
+            // Order by VisibilityStatus (Disabled at the end) then by CreatedAt
+            query = query.OrderBy(a => a.VisibilityStatus == VisibilityStatus.Disabled)
+                         .ThenBy(a => a.CreatedAt);
+
+            var totalRecords = await query.Where(a => a.UserId == id).CountAsync();
+
+            var attendance = await query
+            .Where(a => a.UserId == userId)
+            .Skip(skip)
+            .Take(pageSize)
+            .Include(a => a.User)
+            .Select(a => new
+            {
+
+                a.UserId,
+                a.Id,
+                User = new
+                {
+                    a.User.Name,
+                    a.User.Email
+                },
+                a.Date,
+                a.ClockIn,
+                a.ClockOut,
+                a.BreakStart,
+                a.BreakFinish,
+                a.FormattedWorkDuration,
+                a.FormattedBreakDuration,
+                a.FormattedNightDifDuration,
+                a.FormattedLateDuration,
+                Status = a.Status.ToString(),
+                a.Remarks,
+                VisibilityStatus = role == "Admin" ? a.VisibilityStatus.ToString() : null
+            })
+                .ToListAsync();
+
+            if (totalRecords == 0) return ApiResponse<object>.Success(null, "No attendance records for this user.");
+
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            var response = ApiResponse<object>.Success(new
+            {
+                attendance,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            }, "Attendance data request successful.");
+
+            return response;
+        }
+
         public async Task<ApiResponse<object>> GetAttendanceByAttendanceId(int id)
         {
             var userContext = _httpContextAccessor.HttpContext?.User;
             var role = userContext?.FindFirst(ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role)) return (ApiResponse<object>.Success(null, "Invalid token"));
+            if (string.IsNullOrEmpty(role)) return ApiResponse<object>.Success(null, "Invalid token");
 
             IQueryable<Attendance> query = _context.Attendances
                .Include(a => a.User);
@@ -179,10 +244,10 @@ namespace AttendanceTracker1.Services
 
             if (attendance == null)
             {
-                return (ApiResponse<object>.Success("Attendance record not found."));
+                return ApiResponse<object>.Success("Attendance record not found.");
             }
 
-            return (ApiResponse<object>.Success(attendance, "Attendance data request successful."));
+            return ApiResponse<object>.Success(attendance, "Attendance data request successful.");
         }
         public async Task<ApiResponse<object>> ClockIn(ClockInDto clockInDto)
         {
@@ -190,7 +255,7 @@ namespace AttendanceTracker1.Services
             var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) return (ApiResponse<object>.Success(null, "Invalid token"));
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) return ApiResponse<object>.Success(null, "Invalid token");
 
             var userId = int.Parse(userIdClaim);
 
@@ -199,8 +264,8 @@ namespace AttendanceTracker1.Services
             var existingAttendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == today);
 
-            if (existingAttendance != null && existingAttendance.ClockIn != default(DateTime)) 
-                return (ApiResponse<object>.Success(null, "You have already clocked in today."));
+            if (existingAttendance != null && existingAttendance.ClockIn != default) 
+                return ApiResponse<object>.Success(null, "You have already clocked in today.");
 
             DateTime? parsedClockOut = null;
             if (!string.IsNullOrEmpty(clockInDto.ClockOut) &&
@@ -291,7 +356,7 @@ namespace AttendanceTracker1.Services
             var username = userContext?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                return (ApiResponse<object>.Success(null, "Invalid token"));
+                return ApiResponse<object>.Success(null, "Invalid token");
             
 
             var userId = int.Parse(userIdClaim);
@@ -300,9 +365,9 @@ namespace AttendanceTracker1.Services
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
             if (attendance == null) 
-                return (ApiResponse<object>.Success(null, "Attendance not found"));
+                return ApiResponse<object>.Success(null, "Attendance not found");
             if (attendance.ClockOut.HasValue) 
-                return (ApiResponse<object>.Success(null, "You have already clocked out."));
+                return ApiResponse<object>.Success(null, "You have already clocked out.");
 
             //for testing dummy clock out time
             //if (DateTime.TryParse(clockOutDto.ClockOut, out DateTime parsedClockOut))
@@ -320,14 +385,14 @@ namespace AttendanceTracker1.Services
 
             var user = await _context.Users.FindAsync(userId);
             if (user == null) 
-                return (ApiResponse<object>.Success(null, "User not found"));
+                return ApiResponse<object>.Success(null, "User not found");
 
             var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
             if (config == null) 
-                return (ApiResponse<object>.Success(null, "Overtime configuration not found."));
+                return ApiResponse<object>.Success(null, "Overtime configuration not found.");
 
             // Break time calculation in minutes
-            int breakMinutes = (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
+            int breakMinutes = attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue
                 ? (int)(attendance.BreakFinish.Value - attendance.BreakStart.Value).TotalMinutes
                 : 0;
 
@@ -411,7 +476,7 @@ namespace AttendanceTracker1.Services
             // Format Minutes to "Xh Ym"
             string FormatMinutes(double minutes) => $"{minutes / 60}h {minutes % 60}m";
 
-            return (ApiResponse<object>.Success(new
+            return ApiResponse<object>.Success(new
             {
                 totalWorkTime = FormatMinutes(totalWorkMinutes),
                 approvedOvertime = approvedOvertime != null,
@@ -421,7 +486,7 @@ namespace AttendanceTracker1.Services
                 nightDifferential = FormatMinutes(nightDifferentialMinutes),
                 newAccumulatedOvertime = FormatMinutes(user.AccumulatedOvertime),
                 newAccumulatedNightDifferential = FormatMinutes(user.AccumulatedNightDifferential)
-            }, message));
+            }, message);
         }
         public async Task<ApiResponse<object>> StartBreak()
         {
@@ -430,7 +495,7 @@ namespace AttendanceTracker1.Services
             var username = userContext?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                return (ApiResponse<object>.Success(null, "Invalid token"));
+                return ApiResponse<object>.Success(null, "Invalid token");
 
             var userId = int.Parse(userIdClaim);
 
@@ -440,13 +505,13 @@ namespace AttendanceTracker1.Services
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
             if (attendance == null)
-                return (ApiResponse<object>.Success(null, "Attendance not found."));
+                return ApiResponse<object>.Success(null, "Attendance not found.");
 
             if (attendance.ClockOut.HasValue)
-                return (ApiResponse<object>.Success(null, "Cannot start break because you are already clocked out."));
+                return ApiResponse<object>.Success(null, "Cannot start break because you are already clocked out.");
 
             if (attendance.BreakStart.HasValue || attendance.BreakFinish.HasValue)
-                return (ApiResponse<object>.Success(null, "Break has already been started or ended."));
+                return ApiResponse<object>.Success(null, "Break has already been started or ended.");
 
             attendance.BreakStart = DateTime.Now;
             await _context.SaveChangesAsync();
@@ -457,7 +522,7 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Attendance")
                 .Information("{UserName} started break at {Time}", username, DateTime.Now);
 
-            return (ApiResponse<object>.Success(new { attendance.BreakStart }, message));
+            return ApiResponse<object>.Success(new { attendance.BreakStart }, message);
         }
         public async Task<ApiResponse<object>> EndBreak()
         {
@@ -466,7 +531,7 @@ namespace AttendanceTracker1.Services
             var username = userContext?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                return (ApiResponse<object>.Success(null, "Invalid token"));
+                return ApiResponse<object>.Success(null, "Invalid token");
 
             var userId = int.Parse(userIdClaim);
 
@@ -479,16 +544,16 @@ namespace AttendanceTracker1.Services
             var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
 
             if (attendance == null)
-                return (ApiResponse<object>.Success(null, "Attendance not found."));
+                return ApiResponse<object>.Success(null, "Attendance not found.");
 
             if (!attendance.BreakStart.HasValue)
-                return (ApiResponse<object>.Success(null, "Cannot end break because break has not been started."));
+                return ApiResponse<object>.Success(null, "Cannot end break because break has not been started.");
 
             if (attendance.ClockOut.HasValue)
-                return (ApiResponse<object>.Success(null, "Cannot end break because you are already clocked out."));
+                return ApiResponse<object>.Success(null, "Cannot end break because you are already clocked out.");
 
             if (attendance.BreakFinish.HasValue)
-                return (ApiResponse<object>.Success(null, "Break has already been ended."));
+                return ApiResponse<object>.Success(null, "Break has already been ended.");
 
             attendance.BreakFinish = DateTime.Now;
             await _context.SaveChangesAsync();
@@ -528,10 +593,10 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Attendance")
                 .Information("{UserName} ended break at {Time}", username, DateTime.Now);
 
-            return (ApiResponse<object>.Success(new
+            return ApiResponse<object>.Success(new
             {
                 breakDuration = attendance.FormattedBreakDuration // Ensure this property exists in your model
-            }, "Break has ended."));
+            }, "Break has ended.");
         }
         public async Task<ApiResponse<object>> EditAttendanceRecord(int id, EditAttendanceRecordDto updatedAttendance) //***add more logic for ot, late, and night dif
         {
@@ -540,18 +605,18 @@ namespace AttendanceTracker1.Services
             var adminName = userContext?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(userIdClaim))
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
 
             var adminId = int.Parse(userIdClaim);
             var admin = await _context.Users.FindAsync(adminId);
 
             var attendance = await _context.Attendances.FindAsync(id);
             if (attendance == null)
-                return (ApiResponse<object>.Success(null, "Attendance Record not Found"));
+                return ApiResponse<object>.Success(null, "Attendance Record not Found");
 
             var user = await _context.Users.FindAsync(attendance.UserId);
             if (user == null)
-                return (ApiResponse<object>.Success(null, "User not found."));
+                return ApiResponse<object>.Success(null, "User not found.");
 
             // ✅ Parse the ClockIn and ClockOut strings before updating
             if (!string.IsNullOrWhiteSpace(updatedAttendance.ClockIn) && DateTime.TryParse(updatedAttendance.ClockIn, out DateTime clockInValue))
@@ -609,22 +674,22 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Attendance")
                 .Information("Attendance {Id} has been edited by {AdminName}", id, adminName);
 
-            return (ApiResponse<object>.Success(response, "Attendance Record updated successfully."));
+            return ApiResponse<object>.Success(response, "Attendance Record updated successfully.");
         }
         public async Task<ApiResponse<object>> UpdateAttendanceVisibility(int id, UpdateAttendanceVisibilityDto request)
         {
             var adminContext = _httpContextAccessor.HttpContext?.User;
             var adminName = adminContext.FindFirst(ClaimTypes.Name)?.Value;
             if (string.IsNullOrEmpty(adminName)) 
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
 
             var attendance = await _context.Attendances.FindAsync(id);
             if (attendance == null) 
-                return (ApiResponse<object>.Success(null, "Attendance Record not Found"));
+                return ApiResponse<object>.Success(null, "Attendance Record not Found");
             if (attendance.VisibilityStatus == request.VisibilityStatus) 
-                return (ApiResponse<object>.Success(null, "Visibility status is already set to the requested value."));
+                return ApiResponse<object>.Success(null, "Visibility status is already set to the requested value.");
             if (request.VisibilityStatus != VisibilityStatus.Disabled && request.VisibilityStatus != VisibilityStatus.Enabled) 
-                return (ApiResponse<object>.Success(null, "Invalid visibility status."));
+                return ApiResponse<object>.Success(null, "Invalid visibility status.");
 
             var action = request.VisibilityStatus.ToString();
 
@@ -635,7 +700,7 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Attendance")
                 .Information("Attendance {Id} has been {Action} by {AdminName}", id, action, adminName);
 
-            return (ApiResponse<object>.Success(null, "Attendance record visibility status updated successfully."));
+            return ApiResponse<object>.Success(null, "Attendance record visibility status updated successfully.");
         }
     }
 }

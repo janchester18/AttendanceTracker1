@@ -1,10 +1,11 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.LeaveService
 {
     public class LeaveService : ILeaveService
     {
@@ -85,15 +86,15 @@ namespace AttendanceTracker1.Services
                 .FirstOrDefaultAsync();
 
             if (leave == null) 
-                return (ApiResponse<object>.Success(null, "Leave record not found."));
+                return ApiResponse<object>.Success(null, "Leave record not found.");
 
-            return (ApiResponse<object>.Success(leave, "Leave record requested successfully."));
+            return ApiResponse<object>.Success(leave, "Leave record requested successfully.");
         }
         public async Task<ApiResponse<object>> GetLeaveRequestByUserId(int id)
         {
             var userExists = await _context.Users.AnyAsync(u => u.Id == id);
             if (!userExists) 
-                return (ApiResponse<object>.Success(null, $"User with ID {id} not found."));
+                return ApiResponse<object>.Success(null, $"User with ID {id} not found.");
 
             var leave = await _context.Leaves
                 .Where(l => l.UserId == id)
@@ -118,9 +119,9 @@ namespace AttendanceTracker1.Services
                 .ToListAsync();
 
             if (!leave.Any()) 
-                return (ApiResponse<object>.Success(null, $"User with ID {id} has no leave requests."));
+                return ApiResponse<object>.Success(null, $"User with ID {id} has no leave requests.");
 
-            return (ApiResponse<object>.Success(leave, "Leave record requested successfully"));
+            return ApiResponse<object>.Success(leave, "Leave record requested successfully");
         }
         public async Task<ApiResponse<object>> RequestLeave(RequestLeaveDto request)
         {
@@ -129,7 +130,7 @@ namespace AttendanceTracker1.Services
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
 
             var userId = int.Parse(userIdClaim);
 
@@ -166,29 +167,29 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Leave")
                 .Information("{UserName} has requested a leave at {Time}", username, DateTime.Now);
 
-            return (response);
+            return response;
         }
         public async Task<ApiResponse<object>> Review(int id, LeaveReviewDto request)
         {
             var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
             if (leave == null) 
-                return (ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found."));
+                return ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found.");
 
             // ✅ Validate if status is a valid enum value
             if (!Enum.IsDefined(typeof(LeaveStatus), request.Status)) 
-                return (ApiResponse<object>.Success(null, "Invalid leave status."));
+                return ApiResponse<object>.Success(null, "Invalid leave status.");
 
             // Check if RejectionReason is provided when status is Rejected
             if (request.Status == LeaveStatus.Rejected &&
                 string.IsNullOrWhiteSpace(request.RejectionReason)) 
-                return (ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
+                return ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected.");
 
             var admin = _httpContextAccessor.HttpContext?.User;
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim)) 
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
 
             var userId = int.Parse(adminIdClaim);
 
@@ -200,7 +201,7 @@ namespace AttendanceTracker1.Services
 
             var action = leave.Status.ToString();
 
-            var notificationMessage = $"{adminUsername} has {action} your leave from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy}.";
+            var notificationMessage = $"{adminUsername} has {action} your leave from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy}."; //ADD ADMIN NOTIFICATION
 
             var notification = await _notificationService.CreateNotification(
                 userId: leave.UserId,
@@ -214,7 +215,7 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Leave")
                 .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);
 
-            return (ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}."));
+            return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
         }
     }
 }

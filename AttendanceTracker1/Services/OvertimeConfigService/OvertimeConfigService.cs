@@ -1,10 +1,11 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.OvertimeConfigService
 {
     public class OvertimeConfigService : IOvertimeConfigService
     {
@@ -21,14 +22,14 @@ namespace AttendanceTracker1.Services
         public async Task<ApiResponse<object>> GetOvertimeConfig()
         {
             var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
-            if (config == null) return (ApiResponse<object>.Success(null, "Overtime configuration not found."));
-            return (ApiResponse<object>.Success(config, "Overtime configuration requested successfully."));
+            if (config == null) return ApiResponse<object>.Success(null, "Overtime configuration not found.");
+            return ApiResponse<object>.Success(config, "Overtime configuration requested successfully.");
         }
         public async Task<ApiResponse<object>> UpdateConfig(OvertimeConfigDto updatedConfig)
         {
             var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
 
-            if (config == null) return (ApiResponse<object>.Success(null, "Overtime configuration not found."));
+            if (config == null) return ApiResponse<object>.Success(null, "Overtime configuration not found.");
 
             config.OvertimeDailyMax = updatedConfig.OvertimeDailyMax ?? config.OvertimeDailyMax;
             config.BreakMax = updatedConfig.BreakMax ?? config.BreakMax;
@@ -42,7 +43,7 @@ namespace AttendanceTracker1.Services
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
 
-            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim)) return (ApiResponse<object>.Success(null, "Invalid token."));
+            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim)) return ApiResponse<object>.Success(null, "Invalid token.");
 
             var userId = int.Parse(adminIdClaim);
 
@@ -60,7 +61,7 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Config")
                 .Information("{UserName} has updated the config at {Time}", adminUsername, DateTime.Now);
 
-            return (ApiResponse<object>.Success(config, "Config has been updated successfully."));
+            return ApiResponse<object>.Success(config, "Config has been updated successfully.");
         }
     }
 }

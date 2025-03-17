@@ -1,7 +1,7 @@
 ﻿using MailKit.Net.Smtp;
 using MimeKit;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.EmailService
 {
     public class EmailService : IEmailService
     {

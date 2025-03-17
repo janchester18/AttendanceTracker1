@@ -1,4 +1,4 @@
-﻿namespace AttendanceTracker1.Services
+﻿namespace AttendanceTracker1.Services.EmailService
 {
     public interface IEmailService
     {

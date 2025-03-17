@@ -3,17 +3,15 @@ using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.NotificationService
 {
     public class NotificationService : INotificationService
     {
         private readonly ApplicationDbContext _context;
-        private IHttpContextAccessor _httpContextAccessor;
 
-        public NotificationService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public NotificationService(ApplicationDbContext context)
         {
             _context = context;
-            _httpContextAccessor = httpContextAccessor;
         }
         public async Task<ApiResponse<object>> CreateNotification(int userId, string title, string message, string type, string? link = null)
         {

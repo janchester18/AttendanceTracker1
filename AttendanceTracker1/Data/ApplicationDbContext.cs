@@ -18,6 +18,8 @@ namespace AttendanceTracker1.Data
         public DbSet<Holiday> Holidays { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<CashAdvanceRequest> CashAdvanceRequests { get; set; }
+        public DbSet<CashAdvancePaymentSchedule> CashAdvancePaymentSchedules { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

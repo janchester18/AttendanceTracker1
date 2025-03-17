@@ -1,10 +1,11 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using AttendanceTracker1.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.OvertimeService
 {
     public class OvertimeService : IOvertimeService
     {
@@ -92,9 +93,9 @@ namespace AttendanceTracker1.Services
                .FirstOrDefaultAsync();
 
             if (overtime == null) 
-                return (ApiResponse<object>.Success(null, "Overtime request not found."));
+                return ApiResponse<object>.Success(null, "Overtime request not found.");
 
-            return (ApiResponse<object>.Success(overtime, "Overtime data request successful."));
+            return ApiResponse<object>.Success(overtime, "Overtime data request successful.");
         }
 
         //GET OVERTIME REQUEST BY USER ID SERVICE
@@ -102,7 +103,7 @@ namespace AttendanceTracker1.Services
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) 
-                return (ApiResponse<object>.Success(null, "User not found."));
+                return ApiResponse<object>.Success(null, "User not found.");
 
             var overtime = await _context.Overtimes
             .Where(o => o.UserId == id)
@@ -126,21 +127,21 @@ namespace AttendanceTracker1.Services
             })
             .ToListAsync();
 
-            return (ApiResponse<object>.Success(overtime, "Overtime data request successful."));
+            return ApiResponse<object>.Success(overtime, "Overtime data request successful.");
         }
 
         // REQUEST OVERTIME SERVICE
         public async Task<ApiResponse<object>> RequestOvertime(OvertimeRequestDto overtimeRequest)
         {
             if (overtimeRequest.StartTime >= overtimeRequest.EndTime) 
-                return (ApiResponse<object>.Success(null, "Start time must be before end time."));
+                return ApiResponse<object>.Success(null, "Start time must be before end time.");
 
             var user = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim)) 
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
 
             var userId = int.Parse(userIdClaim);
 
@@ -175,29 +176,29 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Overtime")
                 .Information("{UserName} has requested an overtime at {Time}", username, DateTime.Now);
 
-            return (ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request submitted successfully."));
+            return ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request submitted successfully.");
         }
 
         //OVERTIME REVIEW SERVICE
         public async Task<ApiResponse<object>> Review(int id, OvertimeReview request)
         {
             var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
-            if (overtime == null) return (ApiResponse<object>.Success(null, "User not found."));
+            if (overtime == null) return ApiResponse<object>.Success(null, "User not found.");
 
             // ✅ Validate if status is a valid enum value
-            if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status)) return (ApiResponse<object>.Success(null, "Invalid leave status."));
+            if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status)) return ApiResponse<object>.Success(null, "Invalid leave status.");
 
             // Check if RejectionReason is provided when status is Rejected
             if (request.Status == OvertimeRequestStatus.Rejected &&
                 string.IsNullOrWhiteSpace(request.RejectionReason)) 
-                    return (ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected."));
+                    return ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected.");
 
             var admin = _httpContextAccessor.HttpContext?.User;
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
-                return (ApiResponse<object>.Success(null, "Invalid token."));
+                return ApiResponse<object>.Success(null, "Invalid token.");
 
             var userId = int.Parse(adminIdClaim);
 
@@ -223,7 +224,7 @@ namespace AttendanceTracker1.Services
                 .ForContext("Type", "Overtime")
                 .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTime.Now);
 
-            return (ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}."));
+            return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
         }
     }
 }

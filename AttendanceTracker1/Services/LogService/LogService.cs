@@ -2,7 +2,7 @@
 using AttendanceTracker1.DTO;
 using Microsoft.EntityFrameworkCore;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.LogService
 {
     public class LogService : ILogService
     {

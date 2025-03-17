@@ -23,9 +23,9 @@ namespace AttendanceTracker1.Middlewares
             catch (ValidationException ex) // Handle specific validation exceptions
             {
                 httpContext.Response.ContentType = "application/json";
-                httpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                httpContext.Response.StatusCode = (int)HttpStatusCode.OK;
 
-                var response = ApiResponse<object>.Failed("Validation error occurred", ex.Message);
+                var response = ApiResponse<object>.Success("Validation error occurred", ex.Message);
                 await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
             }
             catch (Exception ex)

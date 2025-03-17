@@ -1,6 +1,6 @@
 ﻿using AttendanceTracker1.DTO;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.LogService
 {
     public interface ILogService
     {

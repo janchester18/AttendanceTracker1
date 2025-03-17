@@ -2,7 +2,7 @@
 using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.HolidayService
 {
     public interface IHolidayService
     {

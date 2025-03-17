@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace AttendanceTracker1.Models
 {
@@ -13,10 +14,23 @@ namespace AttendanceTracker1.Models
 
         [Required]
         [Column(TypeName = "decimal(10,2)")]
-        public decimal Amount { get; set; } 
+        public decimal Amount { get; set; }
 
         [Required]
+
+        public DateTime NeededDate { get; set; }
+
+        [Required(ErrorMessage = "Months to pay is required.")]
+        [Range(1, 60, ErrorMessage = "Months to pay must be between 1 and 60.")]
+        public int MonthsToPay { get; set; }
+
+        public List<CashAdvancePaymentSchedule>? PaymentSchedule { get; set; }
+
+        [Required]
+        [JsonIgnore]
         public CashAdvanceRequestStatus Status { get; set; } = CashAdvanceRequestStatus.Pending; // pending, approved, rejected
+
+        public string RequestStatus => Status.ToString();
 
         [Required]
         public DateTime RequestDate { get; set; } = DateTime.Now; // Date of request
@@ -27,14 +41,16 @@ namespace AttendanceTracker1.Models
         public int? ReviewedBy { get; set; }
 
         [ForeignKey("ReviewedBy")]
+        [JsonIgnore]
         public virtual User? Approver { get; set; }
 
         public string? RejectionReason { get; set; }
 
         [Required]
-        public DateTime UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         [ForeignKey("UserId")]
+        [JsonIgnore]
         public virtual User User { get; set; } // Relationship with the User model
     }
 
@@ -42,6 +58,7 @@ namespace AttendanceTracker1.Models
     {
         Pending = 1,
         Approved = 2,
-        Rejected = 3
+        Rejected = 3,
+        ForEmployeeApproval = 4,
     }
 }

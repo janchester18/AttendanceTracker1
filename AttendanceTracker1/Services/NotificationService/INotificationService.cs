@@ -1,6 +1,6 @@
 ﻿using AttendanceTracker1.Models;
 
-namespace AttendanceTracker1.Services
+namespace AttendanceTracker1.Services.NotificationService
 {
     public interface INotificationService
     {

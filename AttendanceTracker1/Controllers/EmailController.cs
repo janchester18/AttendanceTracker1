@@ -1,6 +1,6 @@
 ﻿using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
-using AttendanceTracker1.Services;
+using AttendanceTracker1.Services.EmailService;
 using Microsoft.AspNetCore.Mvc;
 
 //fthm zesj ddwd mtsr  GMAIL SMTP PASSWORD
