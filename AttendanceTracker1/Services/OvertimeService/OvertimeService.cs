@@ -130,6 +130,67 @@ namespace AttendanceTracker1.Services.OvertimeService
             return ApiResponse<object>.Success(overtime, "Overtime data request successful.");
         }
 
+        public async Task<ApiResponse<object>> GetSelfOvertimeRequest(int page, int pageSize)
+        {
+            var skip = (page - 1) * pageSize;
+
+            var userContext = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = userContext?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = userContext?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null)
+                return ApiResponse<object>.Success(null, "User not found.");
+
+            var overtime = await _context.Overtimes
+            .Where(o => o.UserId == userId)
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
+            .Include(o => o.User)
+            .Include(o => o.Approver)
+            .Select(o => new OvertimeResponseDto
+            {
+                Id = o.Id,
+                EmployeeName = o.User != null ? o.User.Name : "Unknown",
+                Date = o.Date,
+                StartTime = o.StartTime,
+                EndTime = o.EndTime,
+                Reason = o.Reason,
+                ExpectedOutput = o.ExpectedOutput,
+                Status = o.Status.ToString(),
+                ReviewedBy = o.ReviewedBy,
+                ApproverName = o.Approver != null ? o.Approver.Name : null,
+                RejectionReason = o.RejectionReason,
+                CreatedAt = o.CreatedAt,
+                UpdatedAt = o.UpdatedAt
+            })
+            .ToListAsync();
+
+            var totalRecords = await _context.Overtimes
+                .Where(o => o.UserId == userId)
+                .CountAsync();
+
+            // Calculate total pages
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            return ApiResponse<object>.Success(new
+            {
+                overtime,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            }, "Overtime data request successful.");
+        }
+
         // REQUEST OVERTIME SERVICE
         public async Task<ApiResponse<object>> RequestOvertime(OvertimeRequestDto overtimeRequest)
         {

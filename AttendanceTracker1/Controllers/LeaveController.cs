@@ -63,6 +63,21 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        [HttpGet("self")]
+        [Authorize]
+        public async Task<IActionResult> GetSelfLeaveRequest(int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                var response = await _leaveService.GetSelfLeaveRequest(page, pageSize);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> RequestLeave([FromBody] RequestLeaveDto request)

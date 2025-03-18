@@ -3,6 +3,7 @@ using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 using System.Security.Claims;
 
 namespace AttendanceTracker1.Services.LeaveService
@@ -123,6 +124,68 @@ namespace AttendanceTracker1.Services.LeaveService
 
             return ApiResponse<object>.Success(leave, "Leave record requested successfully");
         }
+
+        public async Task<ApiResponse<object>> GetSelfLeaveRequest(int page, int pageSize)
+        {
+            var skip = (page - 1) * pageSize;
+
+            var totalRecords = await _context.Leaves.CountAsync();
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = user?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+            if (!userExists)
+                return ApiResponse<object>.Success(null, $"User with ID {userId} not found.");
+
+            var leave = await _context.Leaves
+                .Where(l => l.UserId == userId)
+                .OrderByDescending(l => l.CreatedDate) // Stable ordering
+                .Skip(skip) // Skip the records for the previous pages
+                .Take(pageSize) // Limit the number of records to the page size
+                .Include(l => l.User)
+                .Include(l => l.Approver)
+                .Select(l => new LeaveResponseDto
+                {
+                    Id = l.Id,
+                    UserId = l.UserId,
+                    UserName = l.User != null ? l.User.Name : null, // Avoids cyclic reference
+                    StartDate = l.StartDate,
+                    EndDate = l.EndDate,
+                    DaysCount = l.DaysCount,
+                    StatusName = l.Status.ToString(),
+                    TypeName = l.Type.ToString(),
+                    Reason = l.Reason,
+                    ReviewedBy = l.ReviewedBy,
+                    ApproverName = l.Approver != null ? l.Approver.Name : null,
+                    RejectionReason = l.RejectionReason,
+                    CreatedDate = l.CreatedDate
+                })
+                .ToListAsync();
+
+            if (!leave.Any())
+                return ApiResponse<object>.Success(null, $"User with ID {userId} has no leave requests.");
+
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            return ApiResponse<object>.Success(new
+            {
+                leave,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            }, "Leave data request successful.");
+        }
+
         public async Task<ApiResponse<object>> RequestLeave(RequestLeaveDto request)
         {
             var user = _httpContextAccessor.HttpContext?.User;

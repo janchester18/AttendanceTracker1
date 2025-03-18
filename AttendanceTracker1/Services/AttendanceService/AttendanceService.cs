@@ -158,6 +158,7 @@ namespace AttendanceTracker1.Services.AttendanceService
             .Where(a => a.UserId == userId)
             .Skip(skip)
             .Take(pageSize)
+            .OrderByDescending(a => a.Date)
             .Include(a => a.User)
             .Select(a => new
             {
