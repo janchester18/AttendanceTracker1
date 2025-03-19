@@ -106,5 +106,34 @@ namespace AttendanceTracker1.Controllers
                 return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             }
         }
+
+        [HttpPut("update/{id}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateOvertimeRequest (int id, [FromBody] UpdateOvertimeDto request)
+        {
+            try
+            {
+                var response = await _overtimeService.UpdateOvertimeRequest(id, request);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
+        [HttpPut("cancel/{id}")]
+        public async Task<IActionResult> CancelOvertimeRequest(int id)
+        {
+            try
+            {
+                var response = await _overtimeService.CancelOvertimeRequest(id);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
     }
 }

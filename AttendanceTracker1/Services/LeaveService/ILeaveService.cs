@@ -11,5 +11,7 @@ namespace AttendanceTracker1.Services.LeaveService
         public Task<ApiResponse<object>> GetSelfLeaveRequest(int page, int pageSize);
         public Task<ApiResponse<object>> RequestLeave(RequestLeaveDto request);
         public Task<ApiResponse<object>> Review(int id, LeaveReviewDto request);
+        //public Task<ApiResponse<object>> UpdateLeaveRequest(int id, UpdateLeaveDto request);
+        //public Task<ApiResponse<object>> CancelLeaveRequest(int id);
     }
 }

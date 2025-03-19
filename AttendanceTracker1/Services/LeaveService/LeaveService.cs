@@ -280,5 +280,54 @@ namespace AttendanceTracker1.Services.LeaveService
 
             return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
         }
+
+        public async Task<ApiResponse<object>> UpdateLeaveRequest(int id, UpdateLeaveDto request)
+        {
+            var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
+            if (leave == null)
+                return ApiResponse<object>.Success(null, $"Leave request with ID {id} not found.");
+
+            if (leave.Status != LeaveStatus.Pending)
+                return ApiResponse<object>.Success(null, "You can only update pending leave requests.");
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            if (leave.UserId != userId)
+                return ApiResponse<object>.Success(null, "You can only update your own leave requests.");
+
+            //leave.StartDate = request.StartDate;
+            //leave.EndDate = request.EndDate;
+            //leave.Reason = request.Reason;
+            //leave.Type = request.Type;
+            //leave.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            var notificationMessage = $"Your leave request from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy} has been updated.";
+
+            await _notificationService.CreateNotification(
+                userId: leave.UserId,
+                title: "Leave Request Updated",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Leave Update"
+            );
+
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "Leave")
+                .Information("{UserName} has updated leave request {Id} at {Time}", user.Identity.Name, id, DateTime.Now);
+
+            return ApiResponse<object>.Success(null, "Leave request updated successfully.");
+        }
+        //public async Task<ApiResponse<object>> CancelLeaveRequest(int id)
+        //{
+
+        //}
     }
 }

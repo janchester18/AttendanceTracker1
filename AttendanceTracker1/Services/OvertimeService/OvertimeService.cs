@@ -149,7 +149,7 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             var overtime = await _context.Overtimes
             .Where(o => o.UserId == userId)
-            .OrderByDescending(o => o.CreatedAt)
+            .OrderByDescending(o => o.Date)
             .Skip(skip)
             .Take(pageSize)
             .Include(o => o.User)
@@ -316,8 +316,11 @@ namespace AttendanceTracker1.Services.OvertimeService
             if (overtime.UserId != userId)
                 return ApiResponse<object>.Success(null, "You can only update your own overtime request.");
 
+            // Check if any field is actually being updated
+            bool isUpdated = false;
+
             // Update only if new values are provided, otherwise keep existing ones
-            overtime.Date = overtimeUpdateRequest.Date ?? overtime.Date;
+            overtime.Date = overtimeUpdateRequest.Date ?? overtime.Date; 
             overtime.StartTime = overtimeUpdateRequest.StartTime ?? overtime.StartTime;
             overtime.EndTime = overtimeUpdateRequest.EndTime ?? overtime.EndTime;
             overtime.Reason = overtimeUpdateRequest.Reason ?? overtime.Reason;
@@ -327,9 +330,40 @@ namespace AttendanceTracker1.Services.OvertimeService
             _context.Overtimes.Update(overtime);
             await _context.SaveChangesAsync();
 
-            return ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request updated successfully.");
+            return ApiResponse<object>.Success(overtime, "Overtime request updated successfully.");
         }
 
+        public async Task<ApiResponse<object>> CancelOvertimeRequest(int id)
+        {
+            var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
+            if (overtime == null)
+                return ApiResponse<object>.Success(null, "Overtime request not found.");
 
+            // Ensure only requests with status 'Pending' can be updated
+            if (overtime.Status != OvertimeRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Only pending overtime requests can be cancelled.");
+
+            var userContext = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = userContext?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            // Only the requester can update their own overtime request
+            if (overtime.UserId != userId)
+                return ApiResponse<object>.Success(null, "You can only cancel your own overtime request.");
+
+            // Check if any field is actually being updated
+            bool isUpdated = false;
+
+            overtime.Status = OvertimeRequestStatus.Canceled;
+
+            _context.Overtimes.Update(overtime);
+            await _context.SaveChangesAsync();
+
+            return ApiResponse<object>.Success(overtime, "Overtime request cancelled successfully.");
+        }
     }
 }

@@ -44,6 +44,7 @@ namespace AttendanceTracker1.Models
     {
         Pending = 1,
         Approved = 2,
-        Rejected = 3
+        Rejected = 3,
+        Canceled = 4
     }
 }
