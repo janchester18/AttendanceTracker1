@@ -287,5 +287,49 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
         }
+
+        public async Task<ApiResponse<object>> UpdateOvertimeRequest(int id, UpdateOvertimeDto overtimeUpdateRequest)
+        {
+            var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
+            if (overtime == null)
+                return ApiResponse<object>.Success(null, "Overtime request not found.");
+
+            // Ensure only requests with status 'Pending' can be updated
+            if (overtime.Status != OvertimeRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Only pending overtime requests can be updated.");
+
+            // Check if start time is before end time (only if both are provided)
+            if (overtimeUpdateRequest.StartTime.HasValue &&
+                overtimeUpdateRequest.EndTime.HasValue &&
+                overtimeUpdateRequest.StartTime >= overtimeUpdateRequest.EndTime)
+                return ApiResponse<object>.Success(null, "Start time must be before end time.");
+
+            var userContext = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = userContext?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            // Only the requester can update their own overtime request
+            if (overtime.UserId != userId)
+                return ApiResponse<object>.Success(null, "You can only update your own overtime request.");
+
+            // Update only if new values are provided, otherwise keep existing ones
+            overtime.Date = overtimeUpdateRequest.Date ?? overtime.Date;
+            overtime.StartTime = overtimeUpdateRequest.StartTime ?? overtime.StartTime;
+            overtime.EndTime = overtimeUpdateRequest.EndTime ?? overtime.EndTime;
+            overtime.Reason = overtimeUpdateRequest.Reason ?? overtime.Reason;
+            overtime.ExpectedOutput = overtimeUpdateRequest.ExpectedOutput ?? overtime.ExpectedOutput;
+            overtime.UpdatedAt = DateTime.Now;
+
+            _context.Overtimes.Update(overtime);
+            await _context.SaveChangesAsync();
+
+            return ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request updated successfully.");
+        }
+
+
     }
 }

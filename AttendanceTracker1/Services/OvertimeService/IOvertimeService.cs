@@ -11,5 +11,6 @@ namespace AttendanceTracker1.Services.OvertimeService
         public Task<ApiResponse<object>> GetSelfOvertimeRequest(int page, int pageSize);
         public Task<ApiResponse<object>> RequestOvertime(OvertimeRequestDto overtimeRequest);
         public Task<ApiResponse<object>> Review(int id, OvertimeReview request);
+        public Task<ApiResponse<object>> UpdateOvertimeRequest(int id, UpdateOvertimeDto request);
     }
 }
