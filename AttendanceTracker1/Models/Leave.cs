@@ -28,6 +28,7 @@ namespace AttendanceTracker1.Models
         public virtual User? Approver { get; set; }
         public string? RejectionReason { get; set; }
         public DateTime? CreatedDate { get; set; } = DateTime.Now;
+        public DateTime? UpdatedAt { get; set; } = DateTime.Now;
     }
 
     public enum LeaveType

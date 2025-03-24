@@ -1,4 +1,6 @@
-﻿namespace AttendanceTracker1.DTO
+﻿using AttendanceTracker1.Models;
+
+namespace AttendanceTracker1.DTO
 {
     public class LeaveResponseDto
     {
@@ -9,6 +11,7 @@
         public DateTime EndDate { get; set; }
         public int DaysCount { get; set; }
         public string StatusName { get; set; }
+        public LeaveType Type { get; set; }
         public string TypeName { get; set; }
         public string? Reason { get; set; }
         public int? ReviewedBy { get; set; }

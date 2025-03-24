@@ -32,11 +32,31 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             var totalRecords = await _context.CashAdvanceRequests.CountAsync();
 
             var cashAdvanceRequests = await _context.CashAdvanceRequests
+                .AsSplitQuery() // Use AsSplitQuery to split the query
                 .Include(x => x.User)
                 .Include(x => x.Approver)
                 .Include(x => x.PaymentSchedule)
+                .OrderByDescending(x => x.RequestDate) // Add an OrderBy clause here
                 .Skip(skip)
                 .Take(pageSize)
+                .Select(x => new CashAdvanceResponseDto
+                {
+                    Id = x.Id,
+                    UserId = x.UserId,
+                    UserName = x.User.Name,
+                    UserEmail = x.User.Email,
+                    Amount = x.Amount,
+                    NeededDate = x.NeededDate,
+                    MonthsToPay = x.MonthsToPay,
+                    PaymentSchedule = x.PaymentSchedule.ToList(),
+                    RequestStatus = x.RequestStatus,
+                    RequestDate = x.RequestDate,
+                    Reason = x.Reason,
+                    ReviewedBy = x.ReviewedBy,
+                    ApproverName = x.Approver.Name,
+                    RejectionReason = x.RejectionReason,
+                    UpdatedAt = x.UpdatedAt
+                })
                 .ToListAsync();
 
             var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
@@ -54,15 +74,93 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             return response;
         }
+
+        public async Task<ApiResponse<object>> GetSelfCashAdvanceRequests(int page, int pageSize)
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = user?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            var skip = (page - 1) * pageSize;
+            var totalRecords = await _context.CashAdvanceRequests.CountAsync();
+
+            var cashAdvanceRequests = await _context.CashAdvanceRequests
+                .AsSplitQuery() // Use AsSplitQuery to split the query
+                .Include(x => x.User)
+                .Include(x => x.Approver)
+                .Include(x => x.PaymentSchedule)
+                .OrderByDescending(x => x.RequestDate) // Add an OrderBy clause here
+                .Where(x => x.UserId == userId)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(x => new CashAdvanceResponseDto
+                {
+                    Id = x.Id,
+                    UserId = x.UserId,
+                    UserName = x.User.Name,
+                    UserEmail = x.User.Email,
+                    Amount = x.Amount,
+                    NeededDate = x.NeededDate,
+                    MonthsToPay = x.MonthsToPay,
+                    PaymentSchedule = x.PaymentSchedule.ToList(),
+                    RequestStatus = x.RequestStatus,
+                    RequestDate = x.RequestDate,
+                    Reason = x.Reason,
+                    ReviewedBy = x.ReviewedBy,
+                    ApproverName = x.Approver.Name,
+                    RejectionReason = x.RejectionReason,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .ToListAsync();
+
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            var response = ApiResponse<object>.Success(new
+            {
+                cashAdvanceRequests,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            }, "Data request successful.");
+
+            return response;
+        }
+
         public async Task<ApiResponse<object>> GetCashAdvanceRequestById(int id)
         {
             var cashAdvanceRequest = await _context.CashAdvanceRequests
                 .Include(x => x.User)
                 .Include(x => x.Approver)
+                .Select(x => new CashAdvanceResponseDto
+                {
+                    Id = x.Id,
+                    UserId = x.UserId,
+                    UserName = x.User.Name,
+                    UserEmail = x.User.Email,
+                    Amount = x.Amount,
+                    NeededDate = x.NeededDate,
+                    MonthsToPay = x.MonthsToPay,
+                    PaymentSchedule = x.PaymentSchedule.ToList(),
+                    RequestStatus = x.RequestStatus,
+                    RequestDate = x.RequestDate,
+                    Reason = x.Reason,
+                    ReviewedBy = x.ReviewedBy,
+                    ApproverName = x.Approver.Name,
+                    RejectionReason = x.RejectionReason,
+                    UpdatedAt = x.UpdatedAt
+                })
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             return cashAdvanceRequest == null
-                ? ApiResponse<object>.Success("Cash advance request not found.")
+                ? ApiResponse<object>.Success(null, "Cash advance request not found.")
                 : ApiResponse<object>.Success(cashAdvanceRequest, "Data request successful.");
         }
         public async Task<ApiResponse<object>> GetCashAdvanceRequestByUserId(int id)
@@ -74,6 +172,25 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 .Include(x => x.User)
                 .Include(x => x.Approver)
                 .Where(x => x.UserId == id)
+                .OrderByDescending(x => x.RequestDate)
+                .Select(x => new CashAdvanceResponseDto
+                {
+                    Id = x.Id,
+                    UserId = x.UserId,
+                    UserName = x.User.Name,
+                    UserEmail = x.User.Email,
+                    Amount = x.Amount,
+                    NeededDate = x.NeededDate,
+                    MonthsToPay = x.MonthsToPay,
+                    PaymentSchedule = x.PaymentSchedule.ToList(),
+                    RequestStatus = x.RequestStatus,
+                    RequestDate = x.RequestDate,
+                    Reason = x.Reason,
+                    ReviewedBy = x.ReviewedBy,
+                    ApproverName = x.Approver.Name,
+                    RejectionReason = x.RejectionReason,
+                    UpdatedAt = x.UpdatedAt
+                })
                 .ToListAsync();
 
             return cashAdvanceRequests == null

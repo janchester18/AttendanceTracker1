@@ -355,9 +355,6 @@ namespace AttendanceTracker1.Services.OvertimeService
             if (overtime.UserId != userId)
                 return ApiResponse<object>.Success(null, "You can only cancel your own overtime request.");
 
-            // Check if any field is actually being updated
-            bool isUpdated = false;
-
             overtime.Status = OvertimeRequestStatus.Canceled;
 
             _context.Overtimes.Update(overtime);

@@ -109,5 +109,35 @@ namespace AttendanceTracker1.Controllers
                 return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
             } 
         }
+
+        [HttpPut("update/{id}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateLeaveRequest(int id, [FromBody] UpdateLeaveDto request)
+        {
+            try
+            {
+                var response = await _leaveService.UpdateLeaveRequest(id, request);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
+        [HttpPut("cancel/{id}")]
+        [Authorize]
+        public async Task<IActionResult> CancelLeaveRequest(int id)
+        {
+            try
+            {
+                var response = await _leaveService.CancelLeaveRequest(id);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
     }
 }

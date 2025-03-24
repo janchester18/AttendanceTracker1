@@ -8,8 +8,14 @@ namespace AttendanceTracker1.DTO
         [DataType(DataType.DateTime)]
         [JsonPropertyName("clockIn")]
         public string? ClockIn { get; set; }
-        public DateTime? BreakStart { get; set; }
-        public DateTime? BreakFinish { get; set; }
+
+        [DataType(DataType.DateTime)]
+        [JsonPropertyName("breakStart")]
+        public string? BreakStart { get; set; }
+
+        [DataType(DataType.DateTime)]
+        [JsonPropertyName("breakFinish")]
+        public string? BreakFinish { get; set; }
 
 
         [DataType(DataType.DateTime)]

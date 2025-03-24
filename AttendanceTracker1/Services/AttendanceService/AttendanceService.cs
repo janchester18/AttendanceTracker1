@@ -53,6 +53,8 @@ namespace AttendanceTracker1.Services.AttendanceService
                     a.BreakStart,
                     a.BreakFinish,
                     a.FormattedWorkDuration,
+                    a.FormattedBreakDuration,
+                    a.FormattedOvertimeDuration,
                     a.FormattedLateDuration,
                     a.FormattedNightDifDuration,
                     Status = a.Status.ToString(),
@@ -118,6 +120,7 @@ namespace AttendanceTracker1.Services.AttendanceService
                 a.BreakStart,
                 a.BreakFinish,
                 a.FormattedWorkDuration,
+                a.FormattedOvertimeDuration,
                 a.FormattedLateDuration,
                 Status = a.Status.ToString(),
                 a.Remarks,
@@ -177,6 +180,7 @@ namespace AttendanceTracker1.Services.AttendanceService
                 a.BreakFinish,
                 a.FormattedWorkDuration,
                 a.FormattedBreakDuration,
+                a.FormattedOvertimeDuration,
                 a.FormattedNightDifDuration,
                 a.FormattedLateDuration,
                 Status = a.Status.ToString(),
@@ -236,6 +240,7 @@ namespace AttendanceTracker1.Services.AttendanceService
                 a.BreakStart,
                 a.BreakFinish,
                 a.FormattedWorkDuration,
+                a.FormattedOvertimeDuration,
                 a.FormattedLateDuration,
                 Status = a.Status.ToString(),
                 a.Remarks,
@@ -466,6 +471,9 @@ namespace AttendanceTracker1.Services.AttendanceService
                 );
             }
 
+            // Store the approved overtime duration in attendance
+            attendance.OvertimeDuration = approvedOvertimeMinutes;
+
             user.AccumulatedOvertime += approvedOvertimeMinutes;
 
             await _context.SaveChangesAsync();
@@ -599,7 +607,7 @@ namespace AttendanceTracker1.Services.AttendanceService
                 breakDuration = attendance.FormattedBreakDuration // Ensure this property exists in your model
             }, "Break has ended.");
         }
-        public async Task<ApiResponse<object>> EditAttendanceRecord(int id, EditAttendanceRecordDto updatedAttendance) //***add more logic for ot, late, and night dif
+        public async Task<ApiResponse<object>> EditAttendanceRecord(int id, EditAttendanceRecordDto updatedAttendance)
         {
             var userContext = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = userContext?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -619,51 +627,139 @@ namespace AttendanceTracker1.Services.AttendanceService
             if (user == null)
                 return ApiResponse<object>.Success(null, "User not found.");
 
-            // ✅ Parse the ClockIn and ClockOut strings before updating
+            // ✅ Update ClockIn, ClockOut, BreakStart, BreakFinish
             if (!string.IsNullOrWhiteSpace(updatedAttendance.ClockIn) && DateTime.TryParse(updatedAttendance.ClockIn, out DateTime clockInValue))
                 attendance.ClockIn = clockInValue;
 
             if (!string.IsNullOrWhiteSpace(updatedAttendance.ClockOut) && DateTime.TryParse(updatedAttendance.ClockOut, out DateTime clockOutValue))
                 attendance.ClockOut = clockOutValue;
 
-            // ✅ Assign BreakStart and BreakFinish only if they are provided
-            attendance.BreakStart = updatedAttendance.BreakStart ?? attendance.BreakStart;
-            attendance.BreakFinish = updatedAttendance.BreakFinish ?? attendance.BreakFinish;
+            if (!string.IsNullOrWhiteSpace(updatedAttendance.BreakStart) && DateTime.TryParse(updatedAttendance.BreakStart, out DateTime breakStartValue))
+                attendance.BreakStart = breakStartValue;
 
+            if (!string.IsNullOrWhiteSpace(updatedAttendance.BreakFinish) && DateTime.TryParse(updatedAttendance.BreakFinish, out DateTime breakFinishValue))
+                attendance.BreakFinish = breakFinishValue;
+
+            // ✅ Get Overtime & Night Differential Config
+            var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
+            if (config == null)
+                return ApiResponse<object>.Success(null, "Overtime configuration not found.");
+
+            DateTime workStart = attendance.ClockIn;
+            DateTime workEnd = attendance.ClockOut ?? workStart;
+            TimeSpan totalWorkDuration = workEnd - workStart;
+
+            // ✅ Recalculate Late Status and Late Duration
+            bool isLate = workStart.TimeOfDay > config.OfficeStartTime;
+            attendance.Status = isLate ? AttendanceStatus.Late : AttendanceStatus.Present;
+
+            int lateDurationMinutes = 0;
+            if (isLate)
+            {
+                lateDurationMinutes = (int)(workStart.TimeOfDay - config.OfficeStartTime).TotalMinutes;
+            }
+            // Assuming Attendance has a property LateDuration (in minutes)
+            attendance.LateDuration = lateDurationMinutes;
+
+            // ✅ Calculate Break Duration
+            TimeSpan breakDuration = TimeSpan.Zero;
+            if (attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue)
+                breakDuration = attendance.BreakFinish.Value - attendance.BreakStart.Value;
+
+            // ✅ Fetch Approved Overtime Request
+            var approvedOvertime = await _context.Overtimes
+                .FirstOrDefaultAsync(o => o.UserId == attendance.UserId
+                                           && o.Date.Date == attendance.ClockIn.Date
+                                           && o.Status == OvertimeRequestStatus.Approved);
+
+            int regularWorkMinutes = (int)(config.OfficeEndTime - config.OfficeStartTime).TotalMinutes;
+            int totalWorkMinutes = (int)(totalWorkDuration.TotalMinutes - breakDuration.TotalMinutes);
+            int actualOvertimeMinutes = Math.Max(0, totalWorkMinutes - regularWorkMinutes);
+
+            int approvedOvertimeMinutes = 0;
+            TimeSpan? overtimeStart = null;
+            TimeSpan? overtimeEnd = null;
+
+            // Only calculate approved overtime if an approved request exists.
+            if (approvedOvertime != null)
+            {
+                approvedOvertimeMinutes = Math.Min(actualOvertimeMinutes,
+                    (int)Math.Min((approvedOvertime.EndTime - approvedOvertime.StartTime).TotalMinutes, config.OvertimeDailyMax));
+                overtimeStart = approvedOvertime.StartTime;
+                overtimeEnd = approvedOvertime.EndTime;
+            }
+
+            // ✅ Debugging Approved Overtime
+            Serilog.Log.Information("Approved Overtime: {OvertimeStart} - {OvertimeEnd}", overtimeStart, overtimeEnd);
+
+            // ✅ Night Differential Calculation (only if approved overtime exists)
+            int nightDiffMinutes = 0;
+            if (approvedOvertime != null && overtimeStart.HasValue && overtimeEnd.HasValue)
+            {
+                TimeSpan nightDiffStart = config.NightDifStartTime; // e.g., 22:00:00
+                TimeSpan nightDiffEnd = config.NightDifEndTime;     // e.g., 06:00:00
+
+                TimeSpan otStart = overtimeStart.Value;
+                TimeSpan otEnd = overtimeEnd.Value;
+
+                // ✅ Log values
+                Serilog.Log.Information("OT Start: {OtStart}, OT End: {OtEnd}", otStart, otEnd);
+                Serilog.Log.Information("Night Diff Range: {NightStart} - {NightEnd}", nightDiffStart, nightDiffEnd);
+
+                // Check if there is any overlap between approved overtime and the night diff period.
+                if (otEnd > nightDiffStart || otStart < nightDiffEnd)
+                {
+                    TimeSpan nightShiftStart = (otStart >= nightDiffStart) ? otStart : nightDiffStart;
+                    TimeSpan nightShiftEnd = (otEnd <= nightDiffEnd) ? otEnd : nightDiffEnd;
+
+                    // ✅ Log computed values
+                    Serilog.Log.Information("Computed Night Shift Start: {Start}, Night Shift End: {End}", nightShiftStart, nightShiftEnd);
+
+                    if (nightShiftStart < nightShiftEnd)
+                    {
+                        nightDiffMinutes = (int)(nightShiftEnd - nightShiftStart).TotalMinutes;
+                        Serilog.Log.Information("Night Differential Calculated: {Minutes} minutes", nightDiffMinutes);
+                    }
+                    else
+                    {
+                        Serilog.Log.Warning("Night Shift Start is not less than Night Shift End. No ND calculated.");
+                    }
+                }
+            }
+            // If no approved overtime, both overtime and night differential remain 0.
+
+            // ✅ Store Overtime, Night Differential, and Late Duration in Attendance
+            attendance.OvertimeDuration = approvedOvertimeMinutes;
+            attendance.NightDifDuration = nightDiffMinutes;
+
+            // ✅ Save Changes
             await _context.SaveChangesAsync();
 
-            // ✅ Dynamically build response
+            // ✅ Build Response
             var response = new Dictionary<string, object>
-                {
-                    { "totalBreakHours", attendance.FormattedBreakDuration },
-                    { "totalWorkHours", attendance.FormattedWorkDuration }
-                };
-
-            new Dictionary<string, DateTime?>
-                {
-                    { "newClockIn", attendance.ClockIn },
-                    { "newClockOut", attendance.ClockOut },
-                    { "newBreakStart", attendance.BreakStart },
-                    { "newBreakFinish", attendance.BreakFinish }
-                }
-            .Where(pair => pair.Value.HasValue)
-            .ToList()
-            .ForEach(pair => response.Add(pair.Key, pair.Value));
+    {
+        { "totalBreakHours", breakDuration.ToString(@"hh\:mm") },
+        { "totalWorkHours", totalWorkDuration.ToString(@"hh\:mm") },
+        { "overtimeMinutes", attendance.OvertimeDuration },
+        { "nightDiffMinutes", attendance.NightDifDuration },
+        { "lateDurationMinutes", attendance.LateDuration },
+        { "status", attendance.Status }
+    };
 
             var attendanceDate = attendance.ClockIn.Date.ToString("MMMM dd, yyyy");
 
             var adminNotificationMessage = $"{adminName} has edited the attendance record of {user.Name} for {attendanceDate}.";
             var employeeNotificationMessage = $"{adminName} has edited your attendance record for {attendanceDate}.";
 
-            var adminNotification = await _notificationService.CreateAdminNotification(
+            await _notificationService.CreateAdminNotification(
                 title: "Attendance Record Update",
                 message: adminNotificationMessage,
                 link: "/api/notification/view/{id}",
-                createdById: adminId, 
+                createdById: adminId,
                 type: "Attendance Update"
             );
 
-            var employeeNotification = await _notificationService.CreateNotification(
+            await _notificationService.CreateNotification(
                 userId: attendance.UserId,
                 title: "Attendance Record Update",
                 message: employeeNotificationMessage,
@@ -677,6 +773,8 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             return ApiResponse<object>.Success(response, "Attendance Record updated successfully.");
         }
+
+
         public async Task<ApiResponse<object>> UpdateAttendanceVisibility(int id, UpdateAttendanceVisibilityDto request)
         {
             var adminContext = _httpContextAccessor.HttpContext?.User;

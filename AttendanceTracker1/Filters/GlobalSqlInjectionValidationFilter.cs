@@ -1,23 +1,60 @@
 ﻿using AttendanceTracker1.DTO;
+using AttendanceTracker1.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Reflection;
+using System.Security.Claims;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace AttendanceTracker1.Filters
 {
     public class GlobalSqlInjectionValidationFilter : IActionFilter
     {
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public GlobalSqlInjectionValidationFilter(IHttpContextAccessor httpContextAccessor)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
+
         // Adjust this regex as needed for your security requirements
-        private static readonly Regex SqlInjectionRegex = new Regex(@"([';<>]+|(--)+)", RegexOptions.Compiled);
+        private static readonly Regex SqlInjectionRegex = new Regex(@"([;<>]+|(--)+)", RegexOptions.Compiled);
 
         public void OnActionExecuting(ActionExecutingContext context)
         {
-            foreach (var arg in context.ActionArguments.Values)
+            var httpContext = _httpContextAccessor.HttpContext;
+            var user = httpContext?.User;
+            var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Unknown";
+            var username = user?.FindFirst(ClaimTypes.Name)?.Value ?? "Anonymous";
+            var ipAddress = httpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+
+            foreach (var arg in context.ActionArguments)
             {
-                if (ContainsSqlInjection(arg))
+                if (ContainsSqlInjection(arg.Value))
                 {
-                    context.Result = new BadRequestObjectResult("Input contains invalid characters.");
+
+                    context.Result = new ObjectResult(ApiResponse<object>.Success(null, "Input contains invalid characters."))
+                    {
+                        StatusCode = StatusCodes.Status200OK
+                    };
+
+                    var suspiciousInput = arg.Value != null ? JsonSerializer.Serialize(arg.Value) : "Unknown";
+
+                    var logEntry = new
+                    {
+                        UserName = username,
+                        UserId = userId,
+                        IPAddress = ipAddress,
+                        ParameterName = arg.Key,
+                        Time = DateTime.Now
+                    };
+
+                    Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                        .ForContext("Type", "Suspicious Behavior")
+                        .Information("SQL Injection attempt detected! UserName: {UserName}, UserId: {UserId}, IPAddress: {IPAddress}, Timestamp: {Timestamp}",
+                            username, userId, ipAddress, DateTime.Now);
+
                     return;
                 }
             }

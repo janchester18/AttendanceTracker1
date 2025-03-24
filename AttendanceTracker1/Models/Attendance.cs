@@ -68,6 +68,8 @@ namespace AttendanceTracker1.Models
 
         public double NightDifDuration { get; set; } = 0.0;
 
+        public double OvertimeDuration { get; set; } = 0.0;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
 
@@ -118,9 +120,6 @@ namespace AttendanceTracker1.Models
         {
             get
             {
-                if (LateDuration <= 0)
-                    return "On Time";
-
                 int hours = (int)(LateDuration / 60);
                 int minutes = (int)(LateDuration % 60);
 
@@ -137,6 +136,17 @@ namespace AttendanceTracker1.Models
             {
                 int hours = (int)(NightDifDuration / 60);
                 int minutes = (int)(NightDifDuration % 60);
+
+                return $"{hours}h {minutes}m";
+            }
+        }
+
+        public string FormattedOvertimeDuration
+        {
+            get
+            {
+                int hours = (int)(OvertimeDuration / 60);
+                int minutes = (int)(OvertimeDuration % 60);
 
                 return $"{hours}h {minutes}m";
             }

@@ -24,8 +24,23 @@ using AttendanceTracker1.Services.NotificationService;
 using AttendanceTracker1.Services.OvertimeService;
 using AttendanceTracker1.Services.OvertimeConfigService;
 using AttendanceTracker1.Services.CashAdvanceRequestService;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
+
+//// Configure Kestrel to use HTTPS with the self-signed certificate
+//builder.WebHost.ConfigureKestrel(options =>
+//{
+//    // Listen on IP 10.0.0.17 and port 7009
+//    options.Listen(IPAddress.Parse("10.0.0.17"), 7009, listenOptions =>
+//    {
+//        // The path "cert.pfx" is relative to the current working directory (project root)
+//        listenOptions.UseHttps("cert.pfx", "yourPfxPassword");
+//    });
+
+//    // HTTP endpoint on IP 10.0.0.17 and port 5249 (or any port you choose)
+//    options.Listen(IPAddress.Parse("10.0.0.17"), 5249);
+//});
 
 // 🔹 Add CORS (For frontend access)
 builder.Services.AddCors(options =>

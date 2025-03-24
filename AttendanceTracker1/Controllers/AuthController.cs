@@ -82,6 +82,7 @@ namespace AttendanceTracker1.Controllers
                 if (user == null || !user.VerifyPassword(model.Password))
                     return Ok(ApiResponse<object>.Success(null, "Invalid credentials.")); //verify
 
+                var role = user.Role;
                 var accessToken = GenerateJwtToken(user);
                 var refreshToken = GenerateRefreshToken();
 
@@ -92,6 +93,7 @@ namespace AttendanceTracker1.Controllers
                 {
                     accessToken,
                     refreshToken,
+                    role,
                 }, "Login successful");
 
                 var username = user?.Name ?? "Unknown";

@@ -32,6 +32,21 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        [HttpGet("self")]
+        [Authorize]
+        public async Task<IActionResult> GetSelfCashAdvanceRequests(int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.GetSelfCashAdvanceRequests(page, pageSize);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetCashAdvanceRequestsById (int id)

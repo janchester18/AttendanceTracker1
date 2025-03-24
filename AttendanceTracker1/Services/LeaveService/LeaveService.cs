@@ -129,8 +129,6 @@ namespace AttendanceTracker1.Services.LeaveService
         {
             var skip = (page - 1) * pageSize;
 
-            var totalRecords = await _context.Leaves.CountAsync();
-
             var user = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
@@ -160,6 +158,7 @@ namespace AttendanceTracker1.Services.LeaveService
                     EndDate = l.EndDate,
                     DaysCount = l.DaysCount,
                     StatusName = l.Status.ToString(),
+                    Type = l.Type,
                     TypeName = l.Type.ToString(),
                     Reason = l.Reason,
                     ReviewedBy = l.ReviewedBy,
@@ -171,6 +170,10 @@ namespace AttendanceTracker1.Services.LeaveService
 
             if (!leave.Any())
                 return ApiResponse<object>.Success(null, $"User with ID {userId} has no leave requests.");
+
+            var totalRecords = await _context.Leaves
+                .Where(l => l.UserId == userId) // Filter by userId
+                .CountAsync();
 
             var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
@@ -196,6 +199,10 @@ namespace AttendanceTracker1.Services.LeaveService
                 return ApiResponse<object>.Success(null, "Invalid token.");
 
             var userId = int.Parse(userIdClaim);
+
+            if (request.EndDate < request.StartDate)
+                return ApiResponse<object>.Success(null, "Start date cannot be before end date.");
+
 
             var leaveRequest = new Leave
             {
@@ -292,6 +299,7 @@ namespace AttendanceTracker1.Services.LeaveService
 
             var user = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(userIdClaim))
                 return ApiResponse<object>.Success(null, "Invalid token.");
@@ -301,33 +309,55 @@ namespace AttendanceTracker1.Services.LeaveService
             if (leave.UserId != userId)
                 return ApiResponse<object>.Success(null, "You can only update your own leave requests.");
 
-            //leave.StartDate = request.StartDate;
-            //leave.EndDate = request.EndDate;
-            //leave.Reason = request.Reason;
-            //leave.Type = request.Type;
-            //leave.UpdatedAt = DateTime.Now;
+            leave.StartDate = request.StartDate ?? leave.StartDate;
+            leave.EndDate = request.EndDate ?? leave.EndDate;
+            leave.Reason = request.Reason ?? leave.Reason;
+            leave.Type = request.Type ?? leave.Type;
+            leave.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
 
-            var notificationMessage = $"Your leave request from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy} has been updated.";
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "Leave")
+                .Information("{UserName} has updated leave request {Id} at {Time}", username, id, DateTime.Now);
 
-            await _notificationService.CreateNotification(
-                userId: leave.UserId,
-                title: "Leave Request Updated",
-                message: notificationMessage,
-                link: "/api/notification/view/{id}",
-                type: "Leave Update"
-            );
+            return ApiResponse<object>.Success(leave, "Leave request updated successfully.");
+        }
+
+        public async Task<ApiResponse<object>> CancelLeaveRequest(int id)
+        {
+            var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
+            if (leave == null)
+                return ApiResponse<object>.Success(null, $"Leave request with ID {id} not found.");
+
+            if (leave.Status != LeaveStatus.Pending)
+                return ApiResponse<object>.Success(null, "You can only cancel pending leave requests.");
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = user?.FindFirst(ClaimTypes.Name)?.Value;
+
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            if (leave.UserId != userId)
+                return ApiResponse<object>.Success(null, "You can only cancel your own leave requests.");
+
+
+            leave.Status = LeaveStatus.Canceled;
+
+            _context.Leaves.Update(leave);
+            await _context.SaveChangesAsync();
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has updated leave request {Id} at {Time}", user.Identity.Name, id, DateTime.Now);
+                .Information("{UserName} has canceled leave request {Id} at {Time}", username, id, DateTime.Now);
 
-            return ApiResponse<object>.Success(null, "Leave request updated successfully.");
+            return ApiResponse<object>.Success(leave, "Leave request canceled successfully.");
         }
-        //public async Task<ApiResponse<object>> CancelLeaveRequest(int id)
-        //{
 
-        //}
     }
 }

@@ -4,6 +4,6 @@ namespace AttendanceTracker1.Services.LogService
 {
     public interface ILogService
     {
-        public Task<IEnumerable<LogResponseDto>> GetLogs(int page, int pageSize);
+        public Task<object> GetLogs(int page, int pageSize);
     }
 }
