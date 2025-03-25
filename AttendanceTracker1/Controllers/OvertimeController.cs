@@ -92,13 +92,28 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
-        [HttpPut("review/{id}")]
+        [HttpPut("reject/{id}")]
         [Authorize (Roles="Admin")]
-        public async Task<IActionResult> Review(int id, [FromBody] OvertimeReview request)
+        public async Task<IActionResult> Reject(int id, [FromBody] OvertimeReview request)
         {
             try
             {
-                var response = await _overtimeService.Review(id, request);
+                var response = await _overtimeService.Reject(id, request);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
+        [HttpPut("approve/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Approve(int id)
+        {
+            try
+            {
+                var response = await _overtimeService.Approve(id);
                 return Ok(response);
             }
             catch (Exception ex)

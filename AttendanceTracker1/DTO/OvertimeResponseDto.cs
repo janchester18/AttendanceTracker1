@@ -8,6 +8,7 @@
         public DateTime Date { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
+        public string OvertimeHours { get; set; }
         public string Reason { get; set; } = string.Empty;
         public string ExpectedOutput { get; set; } // Expected Output for the Overtime
         public string Status { get; set; }

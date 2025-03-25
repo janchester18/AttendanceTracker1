@@ -18,7 +18,7 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpGet]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetCashAdvanceRequests (int page = 1, int pageSize = 10)
         {
             try
@@ -93,12 +93,44 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpPut("review/{id}")]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Review(int id, [FromBody] CashAdvanceReview cashAdvanceReview)
         {
             try
             {
                 var response = await _cashAdvanceRequestService.Review(id, cashAdvanceReview);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+
+            }
+        }
+
+        [HttpPut("approve/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Approve(int id, [FromBody] ApproveCashAdvanceDto cashAdvanceReview)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.Approve(id, cashAdvanceReview);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+
+            }
+        }
+
+        [HttpPut("reject/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Reject(int id, [FromBody] RejectCashAdvanceRequest cashAdvanceReview)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.Reject(id, cashAdvanceReview);
                 return Ok(response);
             }
             catch (Exception ex)

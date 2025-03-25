@@ -29,7 +29,7 @@ namespace AttendanceTracker1.Services.OvertimeService
             var overtimes = await _context.Overtimes
                 .Include(o => o.User)
                 .Include(o => o.Approver)
-                .OrderBy(o => o.CreatedAt) 
+                .OrderByDescending(o => o.CreatedAt) 
                 .Skip(skip) 
                 .Take(pageSize) 
                 .Select(o => new OvertimeResponseDto
@@ -40,6 +40,7 @@ namespace AttendanceTracker1.Services.OvertimeService
                     Date = o.Date,
                     StartTime = o.StartTime,
                     EndTime = o.EndTime,
+                    OvertimeHours = $"{(o.EndTime - o.StartTime).Hours}h {(o.EndTime - o.StartTime).Minutes}m",
                     Reason = o.Reason,
                     ExpectedOutput = o.ExpectedOutput,
                     Status = o.Status.ToString(),
@@ -47,7 +48,7 @@ namespace AttendanceTracker1.Services.OvertimeService
                     ApproverName = o.Approver != null ? o.Approver.Name : null,
                     RejectionReason = o.RejectionReason,
                     CreatedAt = o.CreatedAt,
-                    UpdatedAt = o.UpdatedAt
+                    UpdatedAt = o.UpdatedAt,
                 })
                 .ToListAsync();
 
@@ -81,6 +82,7 @@ namespace AttendanceTracker1.Services.OvertimeService
                    Date = o.Date,
                    StartTime = o.StartTime,
                    EndTime = o.EndTime,
+                   OvertimeHours = $"{(o.EndTime - o.StartTime).Hours}h {(o.EndTime - o.StartTime).Minutes}m",
                    Reason = o.Reason,
                    ExpectedOutput = o.ExpectedOutput,
                    Status = o.Status.ToString(),
@@ -116,6 +118,7 @@ namespace AttendanceTracker1.Services.OvertimeService
                 Date = o.Date,
                 StartTime = o.StartTime,
                 EndTime = o.EndTime,
+                OvertimeHours = $"{(o.EndTime - o.StartTime).Hours}h {(o.EndTime - o.StartTime).Minutes}m",
                 Reason = o.Reason,
                 ExpectedOutput = o.ExpectedOutput,
                 Status = o.Status.ToString(),
@@ -161,6 +164,7 @@ namespace AttendanceTracker1.Services.OvertimeService
                 Date = o.Date,
                 StartTime = o.StartTime,
                 EndTime = o.EndTime,
+                OvertimeHours = $"{(o.EndTime - o.StartTime).Hours}h {(o.EndTime - o.StartTime).Minutes}m",
                 Reason = o.Reason,
                 ExpectedOutput = o.ExpectedOutput,
                 Status = o.Status.ToString(),
@@ -240,19 +244,108 @@ namespace AttendanceTracker1.Services.OvertimeService
             return ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request submitted successfully.");
         }
 
+        ////OVERTIME REVIEW SERVICE
+        //public async Task<ApiResponse<object>> Review(int id, OvertimeReview request)
+        //{
+        //    var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
+        //    if (overtime == null) return ApiResponse<object>.Success(null, "User not found.");
+
+        //    // ✅ Validate if status is a valid enum value
+        //    if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status)) return ApiResponse<object>.Success(null, "Invalid leave status.");
+
+        //    // Check if RejectionReason is provided when status is Rejected
+        //    if (request.Status == OvertimeRequestStatus.Rejected &&
+        //        string.IsNullOrWhiteSpace(request.RejectionReason)) 
+        //            return ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected.");
+
+        //    var admin = _httpContextAccessor.HttpContext?.User;
+        //    var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        //    var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+        //    if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
+        //        return ApiResponse<object>.Success(null, "Invalid token.");
+
+        //    var userId = int.Parse(adminIdClaim);
+
+        //    overtime.Status = request.Status;
+        //    overtime.ReviewedBy = userId;
+        //    overtime.RejectionReason = request.RejectionReason;
+
+        //    await _context.SaveChangesAsync();
+
+        //    var action = overtime.Status.ToString();
+            
+        //    var notificationMessage = $"{adminUsername} has {action} your overtime on {overtime.Date:MMM dd, yyyy} from {overtime.StartTime} to {overtime.EndTime}.";
+            
+        //    var notification = await _notificationService.CreateNotification(
+        //        userId: overtime.UserId,
+        //        title: "Overtime Review Result",
+        //        message: notificationMessage,
+        //        link: "/api/notification/view/{id}",
+        //        type: "Overtime Review"
+        //    );
+
+        //    Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+        //        .ForContext("Type", "Overtime")
+        //        .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+
+        //    return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
+        //}
+
         //OVERTIME REVIEW SERVICE
-        public async Task<ApiResponse<object>> Review(int id, OvertimeReview request)
+        public async Task<ApiResponse<object>> Approve(int id)
         {
             var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
             if (overtime == null) return ApiResponse<object>.Success(null, "User not found.");
 
-            // ✅ Validate if status is a valid enum value
-            if (!Enum.IsDefined(typeof(OvertimeRequestStatus), request.Status)) return ApiResponse<object>.Success(null, "Invalid leave status.");
+            var admin = _httpContextAccessor.HttpContext?.User;
+            var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            if (overtime.Status != OvertimeRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can't review a request that is not pending");
+
+            var userId = int.Parse(adminIdClaim);
+
+            overtime.Status = OvertimeRequestStatus.Approved;
+            overtime.ReviewedBy = userId;
+
+            await _context.SaveChangesAsync();
+
+            var action = overtime.Status.ToString();
+
+            var notificationMessage = $"{adminUsername} has {action} your overtime on {overtime.Date:MMM dd, yyyy} from {overtime.StartTime} to {overtime.EndTime}.";
+
+            var notification = await _notificationService.CreateNotification(
+                userId: overtime.UserId,
+                title: "Overtime Review Result",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Overtime Review"
+            );
+
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "Overtime")
+                .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+
+            return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
+        }
+
+        //OVERTIME REVIEW SERVICE
+        public async Task<ApiResponse<object>> Reject(int id, OvertimeReview request)
+        {
+            var overtime = await _context.Overtimes.FirstOrDefaultAsync(o => o.Id == id);
+            if (overtime == null) return ApiResponse<object>.Success(null, "User not found.");
 
             // Check if RejectionReason is provided when status is Rejected
-            if (request.Status == OvertimeRequestStatus.Rejected &&
-                string.IsNullOrWhiteSpace(request.RejectionReason)) 
-                    return ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected.");
+            if (string.IsNullOrWhiteSpace(request.RejectionReason))
+                return ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected.");
+
+            if (overtime.Status != OvertimeRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can't review a request that is not pending");
 
             var admin = _httpContextAccessor.HttpContext?.User;
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -263,16 +356,16 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             var userId = int.Parse(adminIdClaim);
 
-            overtime.Status = request.Status;
+            overtime.Status = OvertimeRequestStatus.Rejected;
             overtime.ReviewedBy = userId;
             overtime.RejectionReason = request.RejectionReason;
 
             await _context.SaveChangesAsync();
 
             var action = overtime.Status.ToString();
-            
+
             var notificationMessage = $"{adminUsername} has {action} your overtime on {overtime.Date:MMM dd, yyyy} from {overtime.StartTime} to {overtime.EndTime}.";
-            
+
             var notification = await _notificationService.CreateNotification(
                 userId: overtime.UserId,
                 title: "Overtime Review Result",
