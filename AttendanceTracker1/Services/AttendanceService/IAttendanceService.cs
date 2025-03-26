@@ -5,6 +5,13 @@ namespace AttendanceTracker1.Services.AttendanceService
 {
     public interface IAttendanceService
     {
+        public Task<ApiResponse<object>> GetAttendanceSummary
+        (
+            int page,
+            int pageSize,
+            DateTime? startDate = null,
+            DateTime? endDate = null
+        );
         public Task<ApiResponse<object>> GetAttendances(int page, int pageSize);
         public Task<ApiResponse<object>> GetAttendanceByUser(int id);
         public Task<ApiResponse<object>> GetAttendanceByAttendanceId(int id);

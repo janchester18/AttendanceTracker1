@@ -527,6 +527,65 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             return await SendNotificationAndLog(adminName, cashAdvanceRequest, userId);
         }
 
+        public async Task<ApiResponse<object>> UpdatePaymentStatus(int id, UpdatePaymentStatusDto request)
+        {
+            var admin = _httpContextAccessor.HttpContext?.User;
+            var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var adminName = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(adminIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(adminIdClaim);
+
+            var cashAdvancePaymentSched = await _context.CashAdvancePaymentSchedules.FindAsync(id);
+            var cashAdvanceRequest = await _context.CashAdvanceRequests.FindAsync(cashAdvancePaymentSched.CashAdvanceRequestId);
+
+            if (cashAdvanceRequest == null)
+                return ApiResponse<object>.Success(null, "Cash advance payment schedule not found.");
+
+            var user = await _context.Users.FindAsync(cashAdvanceRequest.UserId);
+            if (cashAdvancePaymentSched == null)
+                return ApiResponse<object>.Success(null, "Cash advance payment schedule not found.");
+
+            //var existingSchedules = await _context.CashAdvancePaymentSchedules
+            //    .Where(p => p.CashAdvanceRequestId == id)
+            //    .OrderBy(p => p.PaymentDate)
+            //    .ToListAsync();
+
+            cashAdvancePaymentSched.Status = request.Status;
+            cashAdvancePaymentSched.UpdatedAt = DateTime.Now;
+
+            _context.CashAdvancePaymentSchedules.Update(cashAdvancePaymentSched);
+            await _context.SaveChangesAsync();
+
+            var action = cashAdvancePaymentSched.Status.ToString();
+            var notificationMessage = $"{adminName} has updated the cash advance request payment of {user.Name} to {action} on {cashAdvancePaymentSched.UpdatedAt:MMM dd, yyyy}.";
+            var employeeNotificationMessage = $"{adminName} has updated your cash advance request with the amount of {cashAdvancePaymentSched.Amount} to {action} on {DateTime.Now:MMM dd, yyyy}.";
+
+            await _notificationService.CreateAdminNotification(
+                title: "Cash Advance Request Update",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                createdById: userId,
+                type: "Cash Advance Request"
+            );
+
+            await _notificationService.CreateNotification(
+                userId: cashAdvanceRequest.UserId,
+                title: "Cash Advance Request Update",
+                message: employeeNotificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Cash Advance Request"
+            );
+
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "CashAdvance")
+                .Information("{UserName} has set {CashAdvanceId} to {Action} on {Time}", adminName, cashAdvancePaymentSched.Id, action, DateTime.Now);
+
+            return ApiResponse<object>.Success(cashAdvancePaymentSched, "Payment schedule updated.");
+        }
+
         private async Task<ApiResponse<object>> SendNotificationAndLog(string adminName, CashAdvanceRequest cashAdvanceRequest, int userId)
         {
             var user = await _context.Users.FindAsync(cashAdvanceRequest.UserId);
@@ -556,26 +615,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 .ForContext("Type", "CashAdvance")
                 .Information("{UserName} has {Action} cash advance request {CashAdvanceId} on {Time}", adminName, action, cashAdvanceRequest.Id, DateTime.Now);
 
-            return ApiResponse<object>.Success(new
-            {
-                cashAdvanceRequest.Id,
-                cashAdvanceRequest.UserId,
-                cashAdvanceRequest.Amount,
-                cashAdvanceRequest.NeededDate,
-                cashAdvanceRequest.MonthsToPay,
-                PaymentSchedules = cashAdvanceRequest.PaymentSchedule.Select(ps => new
-                {
-                    ps.PaymentDate,
-                    ps.Amount,
-                    Status = ps.Status.ToString()
-                }),
-                Status = action,
-                cashAdvanceRequest.RequestDate,
-                cashAdvanceRequest.Reason,
-                cashAdvanceRequest.ReviewedBy,
-                cashAdvanceRequest.RejectionReason,
-                cashAdvanceRequest.UpdatedAt
-            }, $"Cash advance set to {action}.");
+            return ApiResponse<object>.Success(null, $"Cash advance set to {action}.");
         }
 
         public async Task<ApiResponse<object>> EmployeeReview(int id, EmployeeCashAdvanceReview request) //ADD REVIEWED DATE ON THE MODEL

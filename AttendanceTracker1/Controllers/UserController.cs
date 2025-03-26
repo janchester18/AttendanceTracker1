@@ -45,6 +45,7 @@ namespace AttendanceTracker1.Controllers
                 var users = await _context.Users
                     .Skip(skip) // Skip the records for the previous pages
                     .Take(pageSize) // Limit the number of records to the page size
+                    .OrderBy(u => u.Role)
                     .Select(u => new UserListDto
                     {
                         Id = u.Id,

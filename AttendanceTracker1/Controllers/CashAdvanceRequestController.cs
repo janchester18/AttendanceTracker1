@@ -140,6 +140,22 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        [HttpPut("update-status/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdatePaymentStatus(int id, [FromBody] UpdatePaymentStatusDto request)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.UpdatePaymentStatus(id, request);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+
+            }
+        }
+
         [HttpPut("employee-review/{id}")]
         [Authorize]
         public async Task<IActionResult> EmployeeReview(int id, [FromBody] EmployeeCashAdvanceReview request)

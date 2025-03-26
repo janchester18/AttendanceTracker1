@@ -20,6 +20,120 @@ namespace AttendanceTracker1.Services.AttendanceService
             _notificationService = notificationService;
         }
 
+        public async Task<ApiResponse<object>> GetAttendanceSummary
+        (
+            int page,
+            int pageSize,
+            DateTime? startDate = null,
+            DateTime? endDate = null
+        )
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var role = user?.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role))
+                return ApiResponse<object>.Success(null, "Invalid token");
+
+            // Build base query
+            var query = _context.Attendances
+                .Include(a => a.User)
+                .Where(a => role == "Admin" || a.VisibilityStatus == VisibilityStatus.Enabled)
+                .AsQueryable();
+
+            // Optional: Filter by date range
+            if (startDate.HasValue)
+                query = query.Where(a => a.Date >= startDate.Value);
+
+            if (endDate.HasValue)
+                query = query.Where(a => a.Date <= endDate.Value);
+
+            // 1) Group by User to create an aggregated summary
+            var totalDays = (endDate - startDate)?.Days + 1 ?? 0; // Ensure inclusive counting
+
+            var groupedQuery = query
+                .GroupBy(a => new { a.UserId, a.User.Name })
+                .Select(g => new
+                {
+                    g.Key.UserId,
+                    EmployeeName = g.Key.Name,
+
+                    // Calculate Days Present & Late
+                    DaysPresent = g.Count(x => x.Status == AttendanceStatus.Present || x.Status == AttendanceStatus.Late),
+
+                    // Count Days on Leave
+                    DaysOnLeave = g.Count(x => x.Status == AttendanceStatus.OnLeave),
+
+                    // Compute DaysAbsent correctly
+                    DaysAbsent = totalDays - g.Count(x => x.Status == AttendanceStatus.Present || x.Status == AttendanceStatus.Late) - g.Count(x => x.Status == AttendanceStatus.OnLeave),
+
+                    // Count Late Arrivals
+                    LateArrivals = g.Count(x => x.Status == AttendanceStatus.Late),
+
+                    // Demonstration of "Early Departures" (assuming you track them via remarks).
+                    EarlyDepartures = g.Count(x => x.Remarks == "EarlyDeparture"),
+
+                    // Summing total work hours
+                    TotalWorkMinutes = g.Sum(x =>
+                        x.ClockOut != null
+                        ? (double)EF.Functions.DateDiffMinute(x.ClockIn, x.ClockOut.Value)
+                          - (
+                              x.BreakStart.HasValue && x.BreakFinish.HasValue
+                                ? (double)EF.Functions.DateDiffMinute(x.BreakStart.Value, x.BreakFinish.Value)
+                                : 0
+                            )
+                        : 0
+                    ),
+
+                    // Overtime and Night Differential
+                    OTHours = g.Sum(x => x.OvertimeDuration) / 60.0,
+                    NightDiffHours = g.Sum(x => x.NightDifDuration) / 60.0,
+                });
+
+
+            // 2) Calculate totalRecords BEFORE pagination
+            var totalRecords = await groupedQuery.CountAsync();
+
+            // 3) Apply pagination
+            var skip = (page - 1) * pageSize;
+            var pagedResults = await groupedQuery
+                .OrderBy(x => x.EmployeeName) // Sort by name (or whatever you prefer)
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // 4) Transform results if needed (e.g., rounding total hours)
+            var finalData = pagedResults.Select(x => new
+            {
+                x.UserId,
+                x.EmployeeName,
+                x.DaysPresent,
+                x.DaysAbsent,
+                x.DaysOnLeave,
+                x.LateArrivals,
+                x.EarlyDepartures,
+                TotalWorkHours = Math.Floor(x.TotalWorkMinutes / 60), // e.g., rounding down
+                OTHours = Math.Round(x.OTHours, 2),
+                NightDiffHours = Math.Round(x.NightDiffHours, 2)
+            });
+
+            // 5) Calculate totalPages, hasNextPage, etc.
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            // 6) Return ApiResponse<object>
+            var response = ApiResponse<object>.Success(new
+            {
+                attendanceSummary = finalData,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            }, "Attendance summary request successful.");
+
+            return response;
+        }
+
+
         public async Task<ApiResponse<object>> GetAttendances(int page, int pageSize)
         {
             var user = _httpContextAccessor.HttpContext?.User;
