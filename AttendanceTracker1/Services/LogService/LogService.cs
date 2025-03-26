@@ -1,5 +1,6 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
+using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceTracker1.Services.LogService
@@ -11,13 +12,23 @@ namespace AttendanceTracker1.Services.LogService
         {
             _context = context;
         }
-        public async Task<object> GetLogs(int page, int pageSize)
+        public async Task<ApiResponse<object>> GetLogs(int page, int pageSize)
         {
-            var totalRecords = await _context.Logs.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalRecords / (double)pageSize);
             var today = DateTime.UtcNow.Date; // Ensure you're using the correct timezone
 
+            // Count logs excluding "CashAdvance"
+            var totalRecords = await _context.Logs
+                .Where(l => l.Type != "CashAdvance")
+                .CountAsync();
+
+            if (totalRecords == 0)
+                return ApiResponse<object>.Success(new { Data = new List<LogResponseDto>() }, "No logs found.");
+
+            var totalPages = (int)Math.Ceiling(totalRecords / (double)pageSize);
+
+            // Fetch paginated logs
             var logs = await _context.Logs
+                .Where(l => l.Type != "CashAdvance")
                 .OrderByDescending(l => l.Timestamp)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -36,11 +47,11 @@ namespace AttendanceTracker1.Services.LogService
                 .Where(a => a.Date == today)
                 .CountAsync();
             var approvedLeavesToday = await _context.Leaves
-                 .Where(lr => lr.Status == Models.LeaveStatus.Approved &&
-                 lr.StartDate <= today && lr.EndDate >= today)
+                .Where(lr => lr.Status == Models.LeaveStatus.Approved &&
+                             lr.StartDate <= today && lr.EndDate >= today)
                 .CountAsync();
 
-            return new
+            var response = new
             {
                 Data = logs,
                 TotalRecords = totalRecords,
@@ -55,7 +66,10 @@ namespace AttendanceTracker1.Services.LogService
                 AttendanceToday = attendanceToday,
                 ApprovedLeavesToday = approvedLeavesToday
             };
+
+            return ApiResponse<object>.Success(response, "Logs retrieved successfully.");
         }
+
 
     }
 }

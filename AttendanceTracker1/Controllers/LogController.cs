@@ -22,7 +22,7 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var logs = await _logService.GetLogs(page, pageSize);
-                return Ok(ApiResponse<object>.Success(logs, "Log records requested successfully."));
+                return Ok(logs);
             }
             catch (Exception ex)
             {

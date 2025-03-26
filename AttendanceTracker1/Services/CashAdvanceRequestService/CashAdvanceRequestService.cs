@@ -440,6 +440,9 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             if (cashAdvanceRequest == null)
                 return ApiResponse<object>.Success(null, "Cash advance request not found.");
 
+            if (cashAdvanceRequest.Status != CashAdvanceRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can not review a request that has been reviewed already.");
+
             var existingSchedules = await _context.CashAdvancePaymentSchedules
                 .Where(p => p.CashAdvanceRequestId == id)
                 .OrderBy(p => p.PaymentDate)
@@ -496,6 +499,9 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             if (cashAdvanceRequest == null)
                 return ApiResponse<object>.Success(null, "Cash advance request not found.");
+
+            if (cashAdvanceRequest.Status != CashAdvanceRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can not review a request that has been reviewed already.");
 
             var existingSchedules = await _context.CashAdvancePaymentSchedules
                 .Where(p => p.CashAdvanceRequestId == id)

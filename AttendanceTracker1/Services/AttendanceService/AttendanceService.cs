@@ -370,8 +370,8 @@ namespace AttendanceTracker1.Services.AttendanceService
             var attendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
-            if (attendance == null) 
-                return ApiResponse<object>.Success(null, "Attendance not found");
+            if (attendance == null)
+                return ApiResponse<object>.Failed("You haven't clocked in yet.");
             if (attendance.ClockOut.HasValue) 
                 return ApiResponse<object>.Success(null, "You have already clocked out.");
 
@@ -514,7 +514,7 @@ namespace AttendanceTracker1.Services.AttendanceService
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == DateTime.Today);
 
             if (attendance == null)
-                return ApiResponse<object>.Success(null, "Attendance not found.");
+                return ApiResponse<object>.Failed("You haven't clocked in yet.");
 
             if (attendance.ClockOut.HasValue)
                 return ApiResponse<object>.Success(null, "Cannot start break because you are already clocked out.");
@@ -553,7 +553,7 @@ namespace AttendanceTracker1.Services.AttendanceService
             var config = await _context.OvertimeConfigs.FirstOrDefaultAsync();
 
             if (attendance == null)
-                return ApiResponse<object>.Success(null, "Attendance not found.");
+                return ApiResponse<object>.Failed(null, "You haven't clocked in yet.");
 
             if (!attendance.BreakStart.HasValue)
                 return ApiResponse<object>.Success(null, "Cannot end break because break has not been started.");

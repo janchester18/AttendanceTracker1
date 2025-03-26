@@ -28,7 +28,7 @@ namespace AttendanceTracker1.Services.LeaveService
             var leaves = await _context.Leaves
                 .Include(l => l.User)
                 .Include(l => l.Approver)
-                .OrderBy(l => l.CreatedDate) // Stable ordering
+                .OrderByDescending(l => l.CreatedDate) // Stable ordering
                 .Skip(skip) // Skip the records for the previous pages
                 .Take(pageSize) // Limit the number of records to the page size
                 .Select(l => new LeaveResponseDto
@@ -281,6 +281,95 @@ namespace AttendanceTracker1.Services.LeaveService
                 type: "Leave Review"
             );
             
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "Leave")
+                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+
+            return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
+        }
+
+        public async Task<ApiResponse<object>> Approve(int id)
+        {
+            var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
+            if (leave == null)
+                return ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found.");
+
+            if (leave.Status != LeaveStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can not review a request that is not pending.");
+
+            var admin = _httpContextAccessor.HttpContext?.User;
+            var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(adminIdClaim);
+
+            leave.Status = LeaveStatus.Approved;
+            leave.ReviewedBy = userId;
+
+            await _context.SaveChangesAsync();
+
+            var action = leave.Status.ToString();
+
+            var notificationMessage = $"{adminUsername} has {action} your leave from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy}."; //ADD ADMIN NOTIFICATION
+
+            var notification = await _notificationService.CreateNotification(
+                userId: leave.UserId,
+                title: "Leave Review Result",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Leave Review"
+            );
+
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "Leave")
+                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+
+            return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
+        }
+
+        public async Task<ApiResponse<object>> Reject(int id, LeaveRejectDto request)
+        {
+            var leave = await _context.Leaves.FirstOrDefaultAsync(l => l.Id == id);
+            if (leave == null)
+                return ApiResponse<object>.Success(null, $"Request with leave id: {id} was not found.");
+
+            if (leave.Status != LeaveStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can not review a request that is not pending.");
+
+            // Check if RejectionReason is provided when status is Rejected
+            if (string.IsNullOrWhiteSpace(request.RejectionReason))
+                return ApiResponse<object>.Success(null, "Rejection reason is required when status is Rejected.");
+
+            var admin = _httpContextAccessor.HttpContext?.User;
+            var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var adminUsername = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(adminIdClaim);
+
+            leave.Status = LeaveStatus.Rejected;
+            leave.ReviewedBy = userId;
+            leave.RejectionReason = request.RejectionReason;
+
+            await _context.SaveChangesAsync();
+
+            var action = leave.Status.ToString();
+
+            var notificationMessage = $"{adminUsername} has {action} your leave from {leave.StartDate:MMM dd, yyyy} to {leave.EndDate:MMM dd, yyyy}."; //ADD ADMIN NOTIFICATION
+
+            var notification = await _notificationService.CreateNotification(
+                userId: leave.UserId,
+                title: "Leave Review Result",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                type: "Leave Review"
+            );
+
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
                 .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);

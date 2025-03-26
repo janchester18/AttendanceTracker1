@@ -1,9 +1,10 @@
 ﻿using AttendanceTracker1.DTO;
+using AttendanceTracker1.Models;
 
 namespace AttendanceTracker1.Services.LogService
 {
     public interface ILogService
     {
-        public Task<object> GetLogs(int page, int pageSize);
+        public Task<ApiResponse<object>> GetLogs(int page, int pageSize);
     }
 }
