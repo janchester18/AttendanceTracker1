@@ -171,5 +171,21 @@ namespace AttendanceTracker1.Controllers
 
             }
         }
+
+        [HttpPut("upload-receipt/{id}")]
+        [Authorize]
+        public async Task<IActionResult> UploadReceipt(int id, [FromForm] IFormFile receiptImage)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.UploadReceipt(id, receiptImage);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex);
+
+            }
+        }
     }
 }

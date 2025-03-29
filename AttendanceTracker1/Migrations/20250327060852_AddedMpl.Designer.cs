@@ -4,6 +4,7 @@ using AttendanceTracker1.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AttendanceTracker1.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250327060852_AddedMpl")]
+    partial class AddedMpl
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -107,9 +110,6 @@ namespace AttendanceTracker1.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("ImageFilePath")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime2");
@@ -428,48 +428,6 @@ namespace AttendanceTracker1.Migrations
                     b.ToTable("OvertimeConfigs");
                 });
 
-            modelBuilder.Entity("AttendanceTracker1.Models.OvertimeMpl", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("ConversionDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CutoffEndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CutoffStartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("MPLConverted")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("ResidualOvertimeHours")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TotalOvertimeHours")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime?>("UpdatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("OvertimeMpls");
-                });
-
             modelBuilder.Entity("AttendanceTracker1.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -594,17 +552,6 @@ namespace AttendanceTracker1.Migrations
                         .IsRequired();
 
                     b.Navigation("Approver");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("AttendanceTracker1.Models.OvertimeMpl", b =>
-                {
-                    b.HasOne("AttendanceTracker1.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });

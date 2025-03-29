@@ -535,7 +535,6 @@ namespace AttendanceTracker1.Services.AttendanceService
                 : 0;
 
             attendance.NightDifDuration = nightDifferentialMinutes;
-            user.AccumulatedNightDifferential += nightDifferentialMinutes;
 
             // Total work duration in minutes
             int totalWorkMinutes = (int)(workEnd - workStart).TotalMinutes - breakMinutes;
@@ -588,8 +587,6 @@ namespace AttendanceTracker1.Services.AttendanceService
             // Store the approved overtime duration in attendance
             attendance.OvertimeDuration = approvedOvertimeMinutes;
 
-            user.AccumulatedOvertime += approvedOvertimeMinutes;
-
             await _context.SaveChangesAsync();
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
@@ -607,8 +604,6 @@ namespace AttendanceTracker1.Services.AttendanceService
                 actualOvertimeWorked = FormatMinutes(actualOvertimeMinutes),
                 overtimeAdded = FormatMinutes(approvedOvertimeMinutes),
                 nightDifferential = FormatMinutes(nightDifferentialMinutes),
-                newAccumulatedOvertime = FormatMinutes(user.AccumulatedOvertime),
-                newAccumulatedNightDifferential = FormatMinutes(user.AccumulatedNightDifferential)
             }, message);
         }
         public async Task<ApiResponse<object>> StartBreak()

@@ -26,8 +26,7 @@ namespace AttendanceTracker1.Models
         public string Role { get; set; } = "Employee"; // Default role
         public DateTime Created { get; set; } = DateTime.Now;
         public DateTime Updated { get; set; }
-        public double AccumulatedOvertime { get; set; } = 0.0;
-        public double AccumulatedNightDifferential { get; set; } = 0.0; 
+        public double Mpl { get; set; } = 0.0;
         public ICollection<Attendance>? Attendances { get; set; }
         public ICollection<Leave>? Leaves { get; set; }
         public ICollection<Leave>? Approvals { get; set; }

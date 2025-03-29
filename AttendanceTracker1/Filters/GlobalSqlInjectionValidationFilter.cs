@@ -70,6 +70,10 @@ namespace AttendanceTracker1.Filters
             if (obj == null)
                 return false;
 
+            // Skip IFormFile objects
+            if (obj is IFormFile)
+                return false;
+
             if (obj is string str)
             {
                 return SqlInjectionRegex.IsMatch(str);
@@ -79,6 +83,10 @@ namespace AttendanceTracker1.Filters
             var properties = obj.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
             foreach (var prop in properties)
             {
+                // Optionally skip specific types (like IFormFile)
+                if (prop.PropertyType == typeof(IFormFile))
+                    continue;
+
                 if (prop.PropertyType == typeof(string))
                 {
                     // Skip validation for the "Body" property of EmailRequestDto
@@ -97,5 +105,6 @@ namespace AttendanceTracker1.Filters
 
             return false;
         }
+
     }
 }

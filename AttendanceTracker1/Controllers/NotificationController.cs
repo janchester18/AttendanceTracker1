@@ -31,10 +31,40 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        [HttpGet("self/attendance")]
+        [Authorize]
+        public async Task<IActionResult> GetSelfNotificationsAttendance (int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                var response = await _notificationService.GetSelfNotificationsAttendance(page, pageSize);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
+        [HttpGet("self/cash-advance")]
+        [Authorize]
+        public async Task<IActionResult> GetSelfNotificationsCashAdvance(int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                var response = await _notificationService.GetSelfNotificationsCashAdvance(page, pageSize);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
         [HttpGet("{id}")]
         [Authorize]
-        public async Task<IActionResult> GetUserNotifications (int id, int page = 1, int pageSize = 10)
-        {
+        public async Task<IActionResult> GetUserNotifications(int id, int page = 1, int pageSize = 10)
+        { 
             try
             {
                 var response = await _notificationService.GetUserNotifications(id, page, pageSize);

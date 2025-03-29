@@ -25,6 +25,8 @@ using AttendanceTracker1.Services.OvertimeService;
 using AttendanceTracker1.Services.OvertimeConfigService;
 using AttendanceTracker1.Services.CashAdvanceRequestService;
 using System.Net;
+using AttendanceTracker1.Services.OvertimeMplService;
+using AttendanceTracker1.Services.FileService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,7 +75,8 @@ builder.Services.AddScoped<IOvertimeConfigService, OvertimeConfigService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICashAdvanceRequestService, CashAdvanceRequestService>();
-
+builder.Services.AddScoped<IOvertimeMplService, OvertimeMplService>();
+builder.Services.AddScoped<IFileService, FileService>();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 

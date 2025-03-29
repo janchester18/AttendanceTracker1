@@ -744,5 +744,68 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 cashAdvanceRequest.UpdatedAt
             }, $"Cash advance set to {action}.");
         }
+
+        public async Task<ApiResponse<object>> UploadReceipt(int id, [FromForm] IFormFile receiptImage) //ADD REVIEWED DATE ON THE MODEL
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = user?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(userIdClaim);
+
+            var userContext = await _context.Users.FindAsync(userId);
+
+            if (receiptImage == null || receiptImage.Length == 0)
+                            return ApiResponse<object>.Success(null, "You are not authorized to review this request.");
+
+
+            // Find the existing payment schedule record.
+            var schedule = await _context.CashAdvancePaymentSchedules.FindAsync(id);
+            if (schedule == null)
+                return ApiResponse<object>.Success(null, "Payment schedule record not found.");
+
+            // Define the folder to store uploaded files.
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            // Generate a unique file name to avoid naming conflicts.
+            var uniqueFileName = Guid.NewGuid().ToString() + "_" + Path.GetFileName(receiptImage.FileName);
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            // Save the file on disk.
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await receiptImage.CopyToAsync(stream);
+            }
+
+            // Update the payment schedule record with the file path.
+            schedule.ImageFilePath = uniqueFileName;
+            schedule.UpdatedAt = DateTime.Now;
+
+            _context.CashAdvancePaymentSchedules.Update(schedule);
+            await _context.SaveChangesAsync();
+
+            var notificationMessage = $"{username} has uploaded a receipt for his/her cash advance payment.";
+
+            await _notificationService.CreateAdminNotification(
+                title: $"Payment Receipt Upload by {username}",
+                message: notificationMessage,
+                link: "/api/notification/view/{id}",
+                createdById: userId,
+                type: "Cash Advance Request"
+            );
+
+            Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                .ForContext("Type", "CashAdvance")
+                .Information("{username} has uploaded a receipt for his/her cash advance payment on {Time}.", username, DateTime.Now);
+
+            return ApiResponse<object>.Success(schedule, $"Receipt upload successful.");
+        }
     }
 }

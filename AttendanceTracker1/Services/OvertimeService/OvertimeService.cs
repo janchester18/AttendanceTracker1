@@ -152,7 +152,7 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             var overtime = await _context.Overtimes
             .Where(o => o.UserId == userId)
-            .OrderByDescending(o => o.Date)
+            .OrderByDescending(o => o.CreatedAt)
             .Skip(skip)
             .Take(pageSize)
             .Include(o => o.User)

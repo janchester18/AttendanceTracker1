@@ -1,5 +1,6 @@
 ﻿using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AttendanceTracker1.Services.CashAdvanceRequestService
 {
@@ -15,6 +16,6 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
         public Task<ApiResponse<object>> Reject(int id, RejectCashAdvanceRequest request);
         public Task<ApiResponse<object>> UpdatePaymentStatus(int id, UpdatePaymentStatusDto request);
         public Task<ApiResponse<object>> EmployeeReview(int id, EmployeeCashAdvanceReview request);
-
+        public Task<ApiResponse<object>> UploadReceipt(int id, [FromForm] IFormFile receiptImage);
     }
 }

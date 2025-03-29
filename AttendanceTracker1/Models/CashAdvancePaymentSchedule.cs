@@ -28,6 +28,12 @@ namespace AttendanceTracker1.Models
 
         public string PaymentStatus => Status.ToString();
 
+        public string? ImageFilePath { get; set; }
+
+        // Remove IFormFile from entity or mark it as NotMapped:
+        [NotMapped]
+        public IFormFile ImageFile { get; set; }  // For file upload in a DTO, not stored in the database
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
