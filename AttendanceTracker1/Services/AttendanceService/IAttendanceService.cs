@@ -12,6 +12,14 @@ namespace AttendanceTracker1.Services.AttendanceService
             DateTime? startDate = null,
             DateTime? endDate = null
         );
+
+        public Task<ApiResponse<object>> GetFullAttendanceSummary
+        (
+            int page,
+            int pageSize,
+            DateTime? startDate = null,
+            DateTime? endDate = null
+        );
         public Task<ApiResponse<object>> GetAttendances(int page, int pageSize);
         public Task<ApiResponse<object>> GetAttendanceByUser(int id);
         public Task<ApiResponse<object>> GetAttendanceByAttendanceId(int id);

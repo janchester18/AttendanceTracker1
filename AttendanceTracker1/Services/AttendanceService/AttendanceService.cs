@@ -33,13 +33,13 @@ namespace AttendanceTracker1.Services.AttendanceService
             if (string.IsNullOrEmpty(role))
                 return ApiResponse<object>.Success(null, "Invalid token");
 
-            // Build base query
+            // Build base query for Attendance
             var query = _context.Attendances
                 .Include(a => a.User)
                 .Where(a => role == "Admin" || a.VisibilityStatus == VisibilityStatus.Enabled)
                 .AsQueryable();
 
-            // Optional: Filter by date range
+            // Optional: Filter by date range for Attendance
             if (startDate.HasValue)
                 query = query.Where(a => a.Date >= startDate.Value);
 
@@ -68,7 +68,7 @@ namespace AttendanceTracker1.Services.AttendanceService
                     // Count Late Arrivals
                     LateArrivals = g.Count(x => x.Status == AttendanceStatus.Late),
 
-                    // Demonstration of "Early Departures" (assuming you track them via remarks).
+                    // Demonstration of "Early Departures" (assuming you track them via remarks)
                     EarlyDepartures = g.Count(x => x.Remarks == "EarlyDeparture"),
 
                     // Summing total work hours
@@ -85,14 +85,24 @@ namespace AttendanceTracker1.Services.AttendanceService
 
                     // Overtime and Night Differential
                     OTHours = g.Sum(x => x.OvertimeDuration) / 60.0,
-                    NightDiffHours = g.Sum(x => x.NightDifDuration) / 60.0,
+                    NightDiffHours = g.Sum(x => x.NightDifDuration),
                 });
-
 
             // 2) Calculate totalRecords BEFORE pagination
             var totalRecords = await groupedQuery.CountAsync();
 
-            // 3) Apply pagination
+            // 3) Fetch MPL converted overtime for the given date range
+            var overtimeMplQuery = _context.OvertimeMpls
+                .Where(om => (startDate.HasValue && om.CutoffEndDate >= startDate.Value) || !startDate.HasValue)
+                .Where(om => (endDate.HasValue && om.CutoffStartDate <= endDate.Value) || !endDate.HasValue)
+                .GroupBy(om => om.UserId)
+                .Select(g => new
+                {
+                    UserId = g.Key,
+                    TotalMPLConverted = g.Sum(om => om.MPLConverted*8) // Total MPL Converted overtime for this user
+                }).ToListAsync();
+
+            // 4) Apply pagination
             var skip = (page - 1) * pageSize;
             var pagedResults = await groupedQuery
                 .OrderBy(x => x.EmployeeName) // Sort by name (or whatever you prefer)
@@ -100,25 +110,36 @@ namespace AttendanceTracker1.Services.AttendanceService
                 .Take(pageSize)
                 .ToListAsync();
 
-            // 4) Transform results if needed (e.g., rounding total hours)
-            var finalData = pagedResults.Select(x => new
-            {
-                x.UserId,
-                x.EmployeeName,
-                x.DaysPresent,
-                x.DaysAbsent,
-                x.DaysOnLeave,
-                x.LateArrivals,
-                x.EarlyDepartures,
-                TotalWorkHours = Math.Floor(x.TotalWorkMinutes / 60), // e.g., rounding down
-                OTHours = Math.Round(x.OTHours, 2),
-                NightDiffHours = Math.Round(x.NightDiffHours, 2)
-            });
+            // 5) Subtract the MPL converted overtime from Overtime Hours
+            var overtimeMplData = await overtimeMplQuery;
 
-            // 5) Calculate totalPages, hasNextPage, etc.
+            var finalData = pagedResults.Select(x =>
+            {
+                // Find the user's converted MPL overtime
+                var mplConverted = overtimeMplData.FirstOrDefault(om => om.UserId == x.UserId)?.TotalMPLConverted ?? 0;
+
+                // Subtract MPL converted overtime from the total Overtime Hours
+                var adjustedOTHours = x.OTHours - mplConverted;
+
+                return new
+                {
+                    x.UserId,
+                    x.EmployeeName,
+                    x.DaysPresent,
+                    x.DaysAbsent,
+                    x.DaysOnLeave,
+                    x.LateArrivals,
+                    x.EarlyDepartures,
+                    TotalWorkHours = Math.Floor(x.TotalWorkMinutes / 60), // e.g., rounding down
+                    OTHours = Math.Round(adjustedOTHours, 2),  // Adjusted Overtime Hours
+                    NightDiffHours = Math.Round(x.NightDiffHours, 2)
+                };
+            }).ToList();
+
+            // 6) Calculate totalPages, hasNextPage, etc.
             var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
-            // 6) Return ApiResponse<object>
+            // 7) Return ApiResponse<object>
             var response = ApiResponse<object>.Success(new
             {
                 attendanceSummary = finalData,
@@ -131,6 +152,153 @@ namespace AttendanceTracker1.Services.AttendanceService
             }, "Attendance summary request successful.");
 
             return response;
+        }
+
+        public async Task<ApiResponse<object>> GetFullAttendanceSummary
+        (
+            int page,
+            int pageSize,
+            DateTime? startDate = null,
+            DateTime? endDate = null
+        )
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var role = user?.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role))
+                return ApiResponse<object>.Success(null, "Invalid token");
+
+            var query = _context.Attendances
+                .Include(a => a.User)
+                .Where(a => role == "Admin" || a.VisibilityStatus == VisibilityStatus.Enabled)
+                .AsQueryable();
+
+            if (startDate.HasValue)
+                query = query.Where(a => a.Date >= startDate.Value);
+            if (endDate.HasValue)
+                query = query.Where(a => a.Date <= endDate.Value);
+
+            var totalDays = (endDate - startDate)?.Days + 1 ?? 0;
+
+            // Helper function to format minutes as HH:mm
+            string FormatMinutes(int minutes) => $"{minutes / 60:D2}:{minutes % 60:D2}";
+
+            var groupedQuery = query
+            .GroupBy(a => new { a.UserId, a.User.Name })
+            .Select(g => new
+            {
+                g.Key.UserId,
+                EmployeeName = g.Key.Name,
+                DaysPresent = g.Count(x => x.Status == AttendanceStatus.Present || x.Status == AttendanceStatus.Late),
+                DaysOnLeave = g.Count(x => x.Status == AttendanceStatus.OnLeave),
+                DaysAbsent = totalDays - g.Count(x => x.Status == AttendanceStatus.Present || x.Status == AttendanceStatus.Late) - g.Count(x => x.Status == AttendanceStatus.OnLeave),
+                LateArrivals = g.Where(x => x.Status == AttendanceStatus.Late)
+                                .Select(x => new { x.ClockIn, x.LateDuration })
+                                .ToList(),
+                EarlyDepartures = g.Count(x => x.Remarks == "EarlyDeparture"),
+                TotalWorkMinutes = g.Sum(x => x.ClockOut != null ? (double)EF.Functions.DateDiffMinute(x.ClockIn, x.ClockOut.Value) - (x.BreakStart.HasValue && x.BreakFinish.HasValue ? (double)EF.Functions.DateDiffMinute(x.BreakStart.Value, x.BreakFinish.Value) : 0) : 0),
+
+                // Fetch overtime from Attendances where OvertimeDuration > 0
+                OvertimeEntries = g.Where(x => x.OvertimeDuration > 0)
+                                   .Select(x => new {
+                                       x.Date,
+                                       OvertimeMinutes = (int)x.OvertimeDuration,
+                                       Reason = _context.Overtimes
+                                               .Where(o => o.UserId == g.Key.UserId && o.Date == x.Date)
+                                               .Select(o => o.Reason)
+                                               .FirstOrDefault()
+                                   }).ToList(),
+
+                NightDiffHours = g.Sum(x => x.NightDifDuration),
+            });
+
+            var totalRecords = await groupedQuery.CountAsync();
+            var skip = (page - 1) * pageSize;
+            var pagedResults = await groupedQuery.OrderBy(x => x.EmployeeName).Skip(skip).Take(pageSize).ToListAsync();
+
+            var finalData = pagedResults.Select(x =>
+            {
+                // First, calculate the total overtime minutes and remaining overtime after MPL conversion
+                var totalOTMinutes = x.OvertimeEntries.Sum(o => o.OvertimeMinutes);
+
+                // Fetch MPL-converted hours
+                int mplsConverted = _context.OvertimeMpls
+                    .Where(m => m.UserId == x.UserId &&
+                                ((startDate == null || m.CutoffEndDate >= startDate) &&
+                                 (endDate == null || m.CutoffStartDate <= endDate)))
+                    .Sum(m => m.MPLConverted);
+                var mplsConvertedHours = mplsConverted * 8 * 60; // Convert MPLs to minutes
+
+                // The remaining OT minutes after MPL conversion
+                double remainingOTMinutes = Math.Max(0, totalOTMinutes - mplsConvertedHours);
+
+                // Now, offset the late arrivals using the remaining overtime minutes
+                var adjustedLates = x.LateArrivals.Select(late =>
+                {
+                    var offseted = remainingOTMinutes >= late.LateDuration;
+                    if (offseted) remainingOTMinutes -= late.LateDuration;
+                    return new
+                    {
+                        late.ClockIn,
+                        LateDuration = (int)late.LateDuration, // ✅ Assign a name to the property
+                        IsOffseted = offseted
+                    };
+                }).ToList();
+
+                var finalLateCount = adjustedLates.Count(l => !l.IsOffseted);
+                var finalLateMinutes = adjustedLates.Where(l => !l.IsOffseted).Sum(l => l.LateDuration);
+
+                // The final overtime is the remaining overtime after MPL conversion and after deducting late arrivals
+                var finalOTMinutes = Math.Max(0, remainingOTMinutes);
+
+                // Calculate raw late minutes
+                var rawLateMinutes = x.LateArrivals.Sum(l => l.LateDuration);
+
+                return new
+                {
+                    x.UserId,
+                    x.EmployeeName,
+                    x.DaysPresent,
+                    x.DaysAbsent,
+                    x.DaysOnLeave,
+                    LateArrivals = adjustedLates.Select(late => new {
+                        late.ClockIn,
+                        LateDuration = FormatMinutes(late.LateDuration),
+                        late.IsOffseted
+                    }).ToList(),
+                    EarlyDepartures = x.EarlyDepartures,
+                    TotalWorkHours = FormatMinutes((int)x.TotalWorkMinutes),
+                    OvertimeEntries = x.OvertimeEntries.Select(o => new {
+                        o.Date,
+                        OvertimeDuration = $"{(o.OvertimeMinutes / 60):D2}:{(o.OvertimeMinutes % 60):D2}", // New formatted variable
+                        o.Reason
+                    }).ToList(),                    // ✅ Raw Late Arrivals Count
+                    RawLateCount = x.LateArrivals.Count,
+                    RawLateTime = FormatMinutes((int)rawLateMinutes),
+                    OTHours = FormatMinutes((int)totalOTMinutes),
+                    FinalOTHours = FormatMinutes((int)finalOTMinutes),  // ✅ Final OT after MPL and late offsets
+                    NightDiffHours = FormatMinutes((int)x.NightDiffHours),
+                    FinalLates = finalLateCount,
+                    FinalLateTime = FormatMinutes((int)finalLateMinutes),
+                    MPLsConverted = mplsConverted,
+                    MPLsConvertedHours = FormatMinutes((int)mplsConvertedHours),
+                    startDate,
+                    endDate,
+                };
+            }).ToList();
+
+
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            return ApiResponse<object>.Success(new
+            {
+                attendanceSummary = finalData,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1
+            }, "Attendance summary request successful.");
         }
 
 

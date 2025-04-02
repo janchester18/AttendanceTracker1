@@ -84,7 +84,8 @@ namespace AttendanceTracker1.Controllers
                             (_context.OvertimeMpls
                                 .Where(o => o.UserId == u.Id && o.CutoffStartDate == startDate && o.CutoffEndDate == endDate)
                                 .Sum(o => (double?)o.MPLConverted * 8) ?? 0)
-                        ))
+                        )),
+                        u.Mpl,
                     })
                     .ToListAsync();
 

@@ -204,14 +204,26 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             var username = user?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userIdClaim))
-                return ApiResponse<object>.Success(null, "Invalid token.");
+                return ApiResponse<object>.Failed(null, "Invalid token.");
 
             var userId = int.Parse(userIdClaim);
 
             if (request == null) return ApiResponse<object>.Success(null, "Invalid request.");
 
             if (request.PaymentDates.Count() != request.MonthsToPay)
-                return ApiResponse<object>.Success(null, "Payment dates must match the number of months to pay.");
+                return ApiResponse<object>.Failed("Payment dates must match the number of months to pay.");
+
+            if (request.NeededDate <= DateTime.Now)
+                return ApiResponse<object>.Failed("Needed date must be a future date.");
+
+            // Validate that payment dates are not earlier than the NeededDate
+            foreach (var paymentDate in request.PaymentDates)
+            {
+                if (paymentDate < request.NeededDate)
+                {
+                    return ApiResponse<object>.Failed("Payment dates cannot be earlier than the needed date.");
+                }
+            }
 
             var cashAdvanceRequest = new CashAdvanceRequest
             {
@@ -534,15 +546,18 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             var adminName = admin?.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(adminIdClaim))
-                return ApiResponse<object>.Success(null, "Invalid token.");
+                return ApiResponse<object>.Failed("Invalid token.");
 
             var userId = int.Parse(adminIdClaim);
 
             var cashAdvancePaymentSched = await _context.CashAdvancePaymentSchedules.FindAsync(id);
             var cashAdvanceRequest = await _context.CashAdvanceRequests.FindAsync(cashAdvancePaymentSched.CashAdvanceRequestId);
 
+            if (cashAdvancePaymentSched.Status != CashAdvancePaymentStatus.Unpaid && cashAdvancePaymentSched.Status != CashAdvancePaymentStatus.Paid)
+                return ApiResponse<object>.Failed("Can not update payment status.");
+
             if (cashAdvanceRequest == null)
-                return ApiResponse<object>.Success(null, "Cash advance payment schedule not found.");
+                return ApiResponse<object>.Failed("Cash advance payment schedule not found.");
 
             var user = await _context.Users.FindAsync(cashAdvanceRequest.UserId);
             if (cashAdvancePaymentSched == null)
@@ -761,11 +776,30 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             if (receiptImage == null || receiptImage.Length == 0)
                             return ApiResponse<object>.Success(null, "You are not authorized to review this request.");
 
+            // ✅ Define allowed file types
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+            var extension = Path.GetExtension(receiptImage.FileName).ToLower();
+
+            if (!allowedExtensions.Contains(extension))
+                return ApiResponse<object>.Failed("Invalid file type. Allowed formats: JPG, PNG, PDF.");
+
+            // ✅ Limit file size to 2MB
+            var maxSize = 2 * 1024 * 1024; // 2MB
+            if (receiptImage.Length > maxSize)
+                return ApiResponse<object>.Failed("File size exceeds 2MB limit.");
+
 
             // Find the existing payment schedule record.
             var schedule = await _context.CashAdvancePaymentSchedules.FindAsync(id);
+
+            if (schedule.Status != CashAdvancePaymentStatus.Unpaid)
+                return ApiResponse<object>.Failed("File upload is only available for unpaid payment schedules.");
+
+            if (schedule.ImageFilePath is not null)
+                return ApiResponse<object>.Failed("Can't upload file because a file already exist for this payment.");
+
             if (schedule == null)
-                return ApiResponse<object>.Success(null, "Payment schedule record not found.");
+                return ApiResponse<object>.Failed("Payment schedule record not found.");
 
             // Define the folder to store uploaded files.
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploads");

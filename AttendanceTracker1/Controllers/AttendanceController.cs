@@ -37,6 +37,21 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        [HttpGet("full-summary")]
+        [Authorize]
+        public async Task<IActionResult> GetFullAttendanceSummary(int page = 1, int pageSize = 10, DateTime? startDate = null, DateTime? endDate = null)
+        {
+            try
+            {
+                var response = await _attendanceService.GetFullAttendanceSummary(page, pageSize, startDate, endDate);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetAttendances(int page = 1, int pageSize = 10)
