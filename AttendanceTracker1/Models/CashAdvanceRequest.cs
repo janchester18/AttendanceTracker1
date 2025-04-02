@@ -60,5 +60,6 @@ namespace AttendanceTracker1.Models
         Approved = 2,
         Rejected = 3,
         ForEmployeeApproval = 4,
+        Paid = 5,
     }
 }

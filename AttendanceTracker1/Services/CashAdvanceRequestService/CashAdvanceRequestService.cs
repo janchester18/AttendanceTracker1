@@ -551,29 +551,42 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             var userId = int.Parse(adminIdClaim);
 
             var cashAdvancePaymentSched = await _context.CashAdvancePaymentSchedules.FindAsync(id);
-            var cashAdvanceRequest = await _context.CashAdvanceRequests.FindAsync(cashAdvancePaymentSched.CashAdvanceRequestId);
 
-            if (cashAdvancePaymentSched.Status != CashAdvancePaymentStatus.Unpaid && cashAdvancePaymentSched.Status != CashAdvancePaymentStatus.Paid)
-                return ApiResponse<object>.Failed("Can not update payment status.");
+            if (cashAdvancePaymentSched.ImageFilePath == null)
+                return ApiResponse<object>.Failed("Receipt is required before updating payment status.");
 
-            if (cashAdvanceRequest == null)
+            if (cashAdvancePaymentSched == null)
                 return ApiResponse<object>.Failed("Cash advance payment schedule not found.");
 
+            var cashAdvanceRequest = await _context.CashAdvanceRequests.FindAsync(cashAdvancePaymentSched.CashAdvanceRequestId);
+            if (cashAdvanceRequest == null)
+                return ApiResponse<object>.Failed("Cash advance request not found.");
+
+            if (cashAdvancePaymentSched.Status != CashAdvancePaymentStatus.Unpaid && cashAdvancePaymentSched.Status != CashAdvancePaymentStatus.Paid)
+                return ApiResponse<object>.Failed("Cannot update payment status.");
+
             var user = await _context.Users.FindAsync(cashAdvanceRequest.UserId);
-            if (cashAdvancePaymentSched == null)
-                return ApiResponse<object>.Success(null, "Cash advance payment schedule not found.");
 
-            //var existingSchedules = await _context.CashAdvancePaymentSchedules
-            //    .Where(p => p.CashAdvanceRequestId == id)
-            //    .OrderBy(p => p.PaymentDate)
-            //    .ToListAsync();
-
+            // **Update Payment Schedule Status**
             cashAdvancePaymentSched.Status = request.Status;
             cashAdvancePaymentSched.UpdatedAt = DateTime.Now;
 
             _context.CashAdvancePaymentSchedules.Update(cashAdvancePaymentSched);
             await _context.SaveChangesAsync();
 
+            // **Check if all related payment schedules are Paid**
+            bool allPaid = await _context.CashAdvancePaymentSchedules
+                .Where(p => p.CashAdvanceRequestId == cashAdvanceRequest.Id)
+                .AllAsync(p => p.Status == CashAdvancePaymentStatus.Paid);
+
+            if (allPaid)
+            {
+                cashAdvanceRequest.Status = CashAdvanceRequestStatus.Paid; // ✅ Update CashAdvanceRequestStatus, NOT Status
+                _context.CashAdvanceRequests.Update(cashAdvanceRequest);
+                await _context.SaveChangesAsync();
+            }
+
+            // **Notifications**
             var action = cashAdvancePaymentSched.Status.ToString();
             var notificationMessage = $"{adminName} has updated the cash advance request payment of {user.Name} to {action} on {cashAdvancePaymentSched.UpdatedAt:MMM dd, yyyy}.";
             var employeeNotificationMessage = $"{adminName} has updated your cash advance request with the amount of {cashAdvancePaymentSched.Amount} to {action} on {DateTime.Now:MMM dd, yyyy}.";
