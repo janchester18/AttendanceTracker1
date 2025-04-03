@@ -26,17 +26,35 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             _notificationService = notificationService;
         }
 
-        public async Task<ApiResponse<object>> GetCashAdvanceRequests(int page, int pageSize)
+        public async Task<ApiResponse<object>> GetCashAdvanceRequests(int page, int pageSize, string keyword = null, DateTime? startDate = null, DateTime? endDate = null)
         {
             var skip = (page - 1) * pageSize;
-            var totalRecords = await _context.CashAdvanceRequests.CountAsync();
-
-            var cashAdvanceRequests = await _context.CashAdvanceRequests
-                .AsSplitQuery() // Use AsSplitQuery to split the query
+            var query = _context.CashAdvanceRequests
                 .Include(x => x.User)
                 .Include(x => x.Approver)
                 .Include(x => x.PaymentSchedule)
-                .OrderByDescending(x => x.RequestDate) // Add an OrderBy clause here
+                .AsQueryable(); // Start query
+
+            // ✅ Apply search filter (Keyword)
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                query = query.Where(x => x.User.Name.Contains(keyword));
+            }
+
+            // ✅ Apply date range filter (Start Date & End Date)
+            if (startDate.HasValue)
+            {
+                query = query.Where(x => x.RequestDate >= startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                query = query.Where(x => x.RequestDate <= endDate.Value);
+            }
+
+            var totalRecords = await query.CountAsync(); // ✅ Count after filtering
+
+            var cashAdvanceRequests = await query
+                .OrderByDescending(x => x.RequestDate)
                 .Skip(skip)
                 .Take(pageSize)
                 .Select(x => new CashAdvanceResponseDto
@@ -59,6 +77,25 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 })
                 .ToListAsync();
 
+            // ✅ Get total count (without pagination)
+            var allCount = await _context.CashAdvanceRequests.CountAsync();
+
+            // ✅ Pending count
+            var pendingCount = await _context.CashAdvanceRequests
+                .Where(p => p.Status == CashAdvanceRequestStatus.Pending)
+                .CountAsync();
+
+            DateTime today = DateTime.Now;
+            int currentMonth = today.Month;
+            int currentYear = today.Year;
+
+            // ✅ Approved this month count
+            var approvedThisMonth = await _context.CashAdvanceRequests
+                .Where(p => p.Status == CashAdvanceRequestStatus.Approved &&
+                            p.UpdatedAt.Month == currentMonth &&
+                            p.UpdatedAt.Year == currentYear)
+                .CountAsync();
+
             var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
             var response = ApiResponse<object>.Success(new
@@ -69,11 +106,15 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 currentPage = page,
                 pageSize,
                 hasNextPage = page < totalPages,
-                hasPreviousPage = page > 1
+                hasPreviousPage = page > 1,
+                approvedThisMonth,
+                allCount,
+                pendingCount
             }, "Data request successful.");
 
             return response;
         }
+
 
         public async Task<ApiResponse<object>> GetSelfCashAdvanceRequests(int page, int pageSize)
         {
@@ -213,8 +254,8 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             if (request.PaymentDates.Count() != request.MonthsToPay)
                 return ApiResponse<object>.Failed("Payment dates must match the number of months to pay.");
 
-            if (request.NeededDate <= DateTime.Now)
-                return ApiResponse<object>.Failed("Needed date must be a future date.");
+            if (request.NeededDate < DateTime.Now)
+                return ApiResponse<object>.Failed("Needed date can't be in the past.");
 
             // Validate that payment dates are not earlier than the NeededDate
             foreach (var paymentDate in request.PaymentDates)

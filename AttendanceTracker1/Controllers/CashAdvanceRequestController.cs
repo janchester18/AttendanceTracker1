@@ -19,11 +19,11 @@ namespace AttendanceTracker1.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetCashAdvanceRequests (int page = 1, int pageSize = 10)
+        public async Task<IActionResult> GetCashAdvanceRequests (int page = 1, int pageSize = 10, string keyword = null, DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                var response = await _cashAdvanceRequestService.GetCashAdvanceRequests(page, pageSize);
+                var response = await _cashAdvanceRequestService.GetCashAdvanceRequests(page, pageSize, keyword, startDate, endDate);
                 return Ok(response);
             }
             catch (Exception ex)

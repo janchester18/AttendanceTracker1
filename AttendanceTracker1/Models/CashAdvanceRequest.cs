@@ -10,10 +10,11 @@ namespace AttendanceTracker1.Models
         public int Id { get; set; }
 
         [Required]
-        public int UserId { get; set; } 
+        public int UserId { get; set; }
 
         [Required]
         [Column(TypeName = "decimal(10,2)")]
+        [Range(500, 1000000, ErrorMessage = "Amount must be between 500 and 1,000,000.")]
         public decimal Amount { get; set; }
 
         [Required]
@@ -27,7 +28,6 @@ namespace AttendanceTracker1.Models
         public List<CashAdvancePaymentSchedule>? PaymentSchedule { get; set; }
 
         [Required]
-        [JsonIgnore]
         public CashAdvanceRequestStatus Status { get; set; } = CashAdvanceRequestStatus.Pending; // pending, approved, rejected
 
         public string RequestStatus => Status.ToString();

@@ -37,7 +37,6 @@ namespace AttendanceTracker1.Models
         public void MarkAsRead()
         {
             IsRead = true;
-            ReadAt = DateTime.Now;
         }
 
         public enum VisibilityStatus

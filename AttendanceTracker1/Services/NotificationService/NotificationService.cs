@@ -161,6 +161,7 @@ namespace AttendanceTracker1.Services.NotificationService
                     Link = n.Link,
                     CreatedAt = n.CreatedAt,
                     IsRead = n.IsRead,
+                    ReadAt = n.ReadAt,
                     Status = n.Status.ToString()
                 })
                 .ToListAsync();
@@ -285,6 +286,7 @@ namespace AttendanceTracker1.Services.NotificationService
             var notification = await _context.Notifications.FindAsync(notificationId);
 
             notification.MarkAsRead();
+            notification.ReadAt = DateTime.Now;
             await _context.SaveChangesAsync();
 
             var notificationResponse = await _context.Notifications
@@ -300,6 +302,7 @@ namespace AttendanceTracker1.Services.NotificationService
                     Link = n.Link,
                     CreatedAt = n.CreatedAt,
                     IsRead = n.IsRead,
+                    ReadAt = n.ReadAt, // <-- Map ReadAt here
                     Status = n.Status.ToString()
                 }).FirstOrDefaultAsync();
             if (notificationResponse == null) return ApiResponse<object>.Success(null, "Notification not found.");
