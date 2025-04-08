@@ -24,6 +24,12 @@ namespace AttendanceTracker1.Models
         [Required]
         [RegularExpression("^(Admin|Employee)$", ErrorMessage = "Role must be either 'Admin' or 'Employee'.")]
         public string Role { get; set; } = "Employee"; // Default role
+
+        [Required]
+        [RegularExpression("^(Attendance|Cash Advance)$", ErrorMessage = "System user type must be either 'Attendance' or 'Cash Advance'.")]
+        public string SystemUserType { get; set; } = "Attendance";
+        [Required]
+        public UserVisibilityStatus VisibilityStatus { get; set; } = UserVisibilityStatus.Enabled;
         public DateTime Created { get; set; } = DateTime.Now;
         public DateTime Updated { get; set; }
         public double Mpl { get; set; } = 0.0;
@@ -43,6 +49,12 @@ namespace AttendanceTracker1.Models
         public bool VerifyPassword(string password)
         {
             return BCrypt.Net.BCrypt.Verify(password, PasswordHash);
+        }
+
+        public enum UserVisibilityStatus
+        {
+            Disabled = 0,
+            Enabled = 1,
         }
     }
 }

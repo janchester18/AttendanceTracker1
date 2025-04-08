@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using static AttendanceTracker1.Models.User;
 
 namespace AttendanceTracker1.Controllers
 {
@@ -53,6 +54,7 @@ namespace AttendanceTracker1.Controllers
                 };
 
                 user.SetPassword(model.Password);
+                user.SystemUserType = "Attendance";
 
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
@@ -72,6 +74,50 @@ namespace AttendanceTracker1.Controllers
             
         }
 
+        [HttpPost("cash-advance/add-user")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CashAdvanceRegister([FromBody] RegisterDto model)
+        {
+            try
+            {
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                if (existingUser != null)
+                {
+                    return Ok(ApiResponse<object>.Success(null, "Email is already registered."));
+                }
+
+                var user = new User
+                {
+                    Id = 0,
+                    Name = model.Name,
+                    Email = model.Email,
+                    Phone = model.Phone,
+                    Role = model.Role ?? "Employee",
+                    Created = DateTime.Now,
+                    Updated = DateTime.Now
+                };
+
+                user.SetPassword(model.Password);
+                user.SystemUserType = "Cash Advance";
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                var username = user.Name;
+                Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
+                    .ForContext("Type", "Authorization")
+                    .Information("{UserName} has been registered at {Time}", username, DateTime.Now);
+
+                return Ok(ApiResponse<object>.Success(new { user.Name, user.Role }, "User registered successfully."));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = ApiResponse<object>.Failed(ex.Message);
+                return StatusCode(500, errorResponse);
+            }
+
+        }
+
         //Login User
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
@@ -80,7 +126,10 @@ namespace AttendanceTracker1.Controllers
             {
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 if (user == null || !user.VerifyPassword(model.Password))
-                    return Ok(ApiResponse<object>.Success(null, "Invalid credentials.")); //verify
+                    return Ok(ApiResponse<object>.Failed("Invalid credentials.")); //verify
+
+                if (user.VisibilityStatus == UserVisibilityStatus.Disabled)
+                    return Ok(ApiResponse<object>.Failed("User visibility status is disabled."));
 
                 var role = user.Role;
                 var accessToken = GenerateJwtToken(user);

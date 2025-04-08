@@ -37,7 +37,7 @@ namespace AttendanceTracker1.Services.NotificationService
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
 
-            notification.Link = link.Replace("{id}", notification.Id.ToString());
+            notification.Link = link?.Replace("{id}", notification.Id.ToString()) ?? "";
 
             _context.Notifications.Update(notification);
             await _context.SaveChangesAsync();

@@ -18,7 +18,7 @@ namespace AttendanceTracker1.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CreateNotification ([FromBody] int userId, string title, string message, string type, string? link = null)
+        public async Task<IActionResult> CreateNotification (int userId, string title, string message, string type, string? link = null)
         {
             try
             {

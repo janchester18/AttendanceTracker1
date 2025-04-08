@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using Microsoft.EntityFrameworkCore;
+using static AttendanceTracker1.Models.User;
 
 namespace AttendanceTracker1.Services.LogService
 {
@@ -42,7 +43,7 @@ namespace AttendanceTracker1.Services.LogService
                 .ToListAsync();
 
             // Additional Counts
-            var totalUsers = await _context.Users.CountAsync();
+            var totalUsers = await _context.Users.Where(u => u.SystemUserType == "Attendance" && u.VisibilityStatus == UserVisibilityStatus.Enabled).CountAsync();
             var attendanceToday = await _context.Attendances
                 .Where(a => a.Date == today)
                 .CountAsync();
