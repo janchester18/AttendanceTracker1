@@ -304,9 +304,9 @@ namespace AttendanceTracker1.Services.AttendanceService
 
         public async Task<ApiResponse<object>> GetAttendances(int page, int pageSize)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
-            var role = user?.FindFirst(ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role)) return ApiResponse<object>.Success(null, "Invalid token");
+            //var user = _httpContextAccessor.HttpContext?.User;
+            //var role = user?.FindFirst(ClaimTypes.Role)?.Value;
+            //if (string.IsNullOrEmpty(role)) return ApiResponse<object>.Success(null, "Invalid token");
 
             var skip = (page - 1) * pageSize;
 
@@ -315,7 +315,7 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             var attendances = await _context.Attendances
                 .Include(a => a.User)
-                .Where(a => role == "Admin" || a.VisibilityStatus == VisibilityStatus.Enabled)
+                //.Where(a => role == "Admin" || a.VisibilityStatus == VisibilityStatus.Enabled)
                 .OrderByDescending(a => a.VisibilityStatus == VisibilityStatus.Enabled) 
                 .ThenByDescending(a => a.Date)
                 .Skip(skip)

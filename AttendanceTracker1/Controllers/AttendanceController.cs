@@ -53,7 +53,7 @@ namespace AttendanceTracker1.Controllers
         }
 
         [HttpGet]
-        [Authorize]
+        //[Authorize]
         public async Task<IActionResult> GetAttendances(int page = 1, int pageSize = 10)
         {
             try
