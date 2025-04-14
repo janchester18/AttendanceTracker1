@@ -36,7 +36,7 @@ namespace AttendanceTracker1.Controllers
         {
             try
             {
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email && u.SystemUserType == "Attendance");
                 if (existingUser != null)
                 {
                     return Ok(ApiResponse<object>.Success(null, "Email is already registered."));
@@ -76,11 +76,11 @@ namespace AttendanceTracker1.Controllers
 
         [HttpPost("cash-advance/add-user")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CashAdvanceRegister([FromBody] RegisterDto model)
+        public async Task<IActionResult> CashAdvanceRegister([FromBody] AddUserCashAdvanceDto model)
         {
             try
             {
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email && u.SystemUserType == "Cash Advance");
                 if (existingUser != null)
                 {
                     return Ok(ApiResponse<object>.Success(null, "Email is already registered."));
@@ -88,7 +88,6 @@ namespace AttendanceTracker1.Controllers
 
                 var user = new User
                 {
-                    Id = 0,
                     Name = model.Name,
                     Email = model.Email,
                     Phone = model.Phone,
