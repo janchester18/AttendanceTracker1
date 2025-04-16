@@ -20,6 +20,8 @@ namespace AttendanceTracker1.Data
         public DbSet<CashAdvanceRequest> CashAdvanceRequests { get; set; }
         public DbSet<CashAdvancePaymentSchedule> CashAdvancePaymentSchedules { get; set; }
         public DbSet<OvertimeMpl> OvertimeMpls { get; set; }
+        public DbSet<Team> Teams { get; set; }
+        public DbSet<UserTeam> UserTeams { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -54,6 +56,19 @@ namespace AttendanceTracker1.Data
                 .WithMany(u => u.OvertimeApprovals)
                 .HasForeignKey(o => o.ReviewedBy)
                 .OnDelete(DeleteBehavior.Restrict); // Prevent multiple cascade paths
+
+            modelBuilder.Entity<UserTeam>()
+                .HasKey(ut => new { ut.UserId, ut.TeamId });
+
+            modelBuilder.Entity<UserTeam>()
+                .HasOne(ut => ut.User)
+                .WithMany(u => u.UserTeams)
+                .HasForeignKey(ut => ut.UserId);
+
+            modelBuilder.Entity<UserTeam>()
+                .HasOne(ut => ut.Team)
+                .WithMany(t => t.UserTeams)
+                .HasForeignKey(ut => ut.TeamId);
 
             base.OnModelCreating(modelBuilder);
         }

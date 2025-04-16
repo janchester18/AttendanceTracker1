@@ -19,5 +19,7 @@ namespace AttendanceTracker1.DTO
 
         [MinLength(8, ErrorMessage = "Password must be at least 8 characters.")]
         public string? NewPassword { get; set; }
+        public int? TeamId { get; set; } // Optional, update only if provided
+
     }
 }

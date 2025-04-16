@@ -27,6 +27,8 @@ using AttendanceTracker1.Services.CashAdvanceRequestService;
 using System.Net;
 using AttendanceTracker1.Services.OvertimeMplService;
 using AttendanceTracker1.Services.FileService;
+using AttendanceTracker1.Services.TeamService;
+using AttendanceTracker1.Services.SupervisorService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,6 +79,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICashAdvanceRequestService, CashAdvanceRequestService>();
 builder.Services.AddScoped<IOvertimeMplService, OvertimeMplService>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<ITeamService, TeamService>();
+builder.Services.AddScoped<ISupervisorService, SupervisorService>();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
@@ -128,6 +132,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy("EmployeeOnly", policy => policy.RequireRole("Employee"));
+    options.AddPolicy("SupervisorOnly", policy => policy.RequireRole("Supervisor"));
 });
 
 builder.Services.AddSingleton<TokenBlacklistService>();

@@ -59,6 +59,24 @@ namespace AttendanceTracker1.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
+                // ✅ Check if team exists
+                var teamExists = await _context.Teams.AnyAsync(t => t.Id == model.TeamId);
+                if (!teamExists)
+                {
+                    return BadRequest(ApiResponse<object>.Failed("Invalid Team ID."));
+                }
+
+                // ✅ Add UserTeam relationship
+                var userTeam = new UserTeam
+                {
+                    UserId = user.Id,
+                    TeamId = model.TeamId,
+                    AssignedAt = DateTime.UtcNow
+                };
+
+                _context.UserTeams.Add(userTeam);
+                await _context.SaveChangesAsync();
+
                 var username = user.Name;
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Authorization")
@@ -100,6 +118,24 @@ namespace AttendanceTracker1.Controllers
                 user.SystemUserType = "Cash Advance";
 
                 _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                // ✅ Check if team exists
+                var teamExists = await _context.Teams.AnyAsync(t => t.Id == model.TeamId);
+                if (!teamExists)
+                {
+                    return BadRequest(ApiResponse<object>.Failed("Invalid Team ID."));
+                }
+
+                // ✅ Add UserTeam relationship
+                var userTeam = new UserTeam
+                {
+                    UserId = user.Id,
+                    TeamId = model.TeamId,
+                    AssignedAt = DateTime.UtcNow
+                };
+
+                _context.UserTeams.Add(userTeam);
                 await _context.SaveChangesAsync();
 
                 var username = user.Name;

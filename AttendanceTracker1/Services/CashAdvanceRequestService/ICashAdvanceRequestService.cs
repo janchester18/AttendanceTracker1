@@ -7,6 +7,9 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
     public interface ICashAdvanceRequestService
     {
         public Task<ApiResponse<object>> GetCashAdvanceRequests(int page, int pageSize, string keyword, DateTime? startDate, DateTime? endDate);
+        public Task<ApiResponse<object>> SupervisorGetCashAdvanceRequests(int page, int pageSize, string keyword, DateTime? startDate, DateTime? endDate);
+        public Task<ApiResponse<object>> SupervisorApprove(int id, ApproveCashAdvanceDto request);
+        public Task<ApiResponse<object>> SupervisorReject(int id, RejectCashAdvanceRequest request);
         public Task<ApiResponse<object>> GetSelfCashAdvanceRequests(int page, int pageSize);
         public Task<ApiResponse<object>> GetCashAdvanceRequestById(int id);
         public Task<ApiResponse<object>> GetCashAdvanceRequestByUserId(int id);

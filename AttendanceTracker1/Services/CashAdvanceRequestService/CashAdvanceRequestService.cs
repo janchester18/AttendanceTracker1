@@ -29,11 +29,14 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
         public async Task<ApiResponse<object>> GetCashAdvanceRequests(int page, int pageSize, string keyword = null, DateTime? startDate = null, DateTime? endDate = null)
         {
             var skip = (page - 1) * pageSize;
+
+            // Base query filtered by status
             var query = _context.CashAdvanceRequests
                 .Include(x => x.User)
                 .Include(x => x.Approver)
                 .Include(x => x.PaymentSchedule)
-                .AsQueryable(); // Start query
+                .Where(x => x.Status != CashAdvanceRequestStatus.Pending)
+                .AsQueryable();
 
             // ✅ Apply search filter (Keyword)
             if (!string.IsNullOrEmpty(keyword))
@@ -51,7 +54,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 query = query.Where(x => x.RequestDate <= endDate.Value);
             }
 
-            var totalRecords = await query.CountAsync(); // ✅ Count after filtering
+            var totalRecords = await query.CountAsync();
 
             var cashAdvanceRequests = await query
                 .OrderByDescending(x => x.RequestDate)
@@ -77,20 +80,21 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 })
                 .ToListAsync();
 
-            // ✅ Get total count (without pagination)
-            var allCount = await _context.CashAdvanceRequests.CountAsync();
+            // ✅ Reuse the base query to filter counts
+            var filteredQuery = _context.CashAdvanceRequests
+                .Where(x => x.Status != CashAdvanceRequestStatus.Pending);
 
-            // ✅ Pending count
-            var pendingCount = await _context.CashAdvanceRequests
-                .Where(p => p.Status == CashAdvanceRequestStatus.Pending)
+            var allCount = await filteredQuery.CountAsync();
+
+            var pendingCount = await filteredQuery
+                .Where(p => p.Status != CashAdvanceRequestStatus.Pending)
                 .CountAsync();
 
             DateTime today = DateTime.Now;
             int currentMonth = today.Month;
             int currentYear = today.Year;
 
-            // ✅ Approved this month count
-            var approvedThisMonth = await _context.CashAdvanceRequests
+            var approvedThisMonth = await filteredQuery
                 .Where(p => p.Status == CashAdvanceRequestStatus.Approved &&
                             p.UpdatedAt.Month == currentMonth &&
                             p.UpdatedAt.Year == currentYear)
@@ -98,7 +102,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
-            var response = ApiResponse<object>.Success(new
+            return ApiResponse<object>.Success(new
             {
                 cashAdvanceRequests,
                 totalRecords,
@@ -111,11 +115,125 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 allCount,
                 pendingCount
             }, "Data request successful.");
-
-            return response;
         }
 
+        public async Task<ApiResponse<object>> SupervisorGetCashAdvanceRequests(int page, int pageSize, string keyword = null, DateTime? startDate = null, DateTime? endDate = null)
+        {
+            var skip = (page - 1) * pageSize;
 
+            var baseQuery = _context.CashAdvanceRequests
+                .Include(x => x.User)
+                .Include(x => x.Approver)
+                .Include(x => x.PaymentSchedule)
+                .AsQueryable();
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdClaim, out int currentUserId))
+            {
+                return ApiResponse<object>.Failed("Unable to identify current user.");
+            }
+
+            var currentUser = await _context.Users
+                .Include(u => u.UserTeams)
+                .FirstOrDefaultAsync(u => u.Id == currentUserId && u.SystemUserType == "Cash Advance");
+
+            bool isSupervisor = currentUser?.Role == "Supervisor";
+            List<int> teamUserIds = new();
+
+            if (isSupervisor)
+            {
+                var teamIds = currentUser.UserTeams.Select(ut => ut.TeamId).ToList();
+
+                teamUserIds = await _context.UserTeams
+                    .Where(ut => teamIds.Contains(ut.TeamId))
+                    .Select(ut => ut.UserId)
+                    .Distinct()
+                    .ToListAsync();
+
+                baseQuery = baseQuery.Where(r => teamUserIds.Contains(r.UserId));
+            }
+
+            // Apply keyword filter
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                baseQuery = baseQuery.Where(x => x.User.Name.Contains(keyword));
+            }
+
+            if (startDate.HasValue)
+            {
+                baseQuery = baseQuery.Where(x => x.RequestDate >= startDate.Value);
+            }
+
+            if (endDate.HasValue)
+            {
+                baseQuery = baseQuery.Where(x => x.RequestDate <= endDate.Value);
+            }
+
+            var totalRecords = await baseQuery.CountAsync();
+
+            var cashAdvanceRequests = await baseQuery
+                .OrderByDescending(x => x.RequestDate)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(x => new CashAdvanceResponseDto
+                {
+                    Id = x.Id,
+                    UserId = x.UserId,
+                    UserName = x.User.Name,
+                    UserEmail = x.User.Email,
+                    Amount = x.Amount,
+                    NeededDate = x.NeededDate,
+                    MonthsToPay = x.MonthsToPay,
+                    PaymentSchedule = x.PaymentSchedule.ToList(),
+                    RequestStatus = x.RequestStatus,
+                    RequestDate = x.RequestDate,
+                    Reason = x.Reason,
+                    ReviewedBy = x.ReviewedBy,
+                    ApproverName = x.Approver.Name,
+                    RejectionReason = x.RejectionReason,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .ToListAsync();
+
+            // 🔽 Filtered counts using the same teamUserIds list if supervisor
+            var filteredQuery = _context.CashAdvanceRequests.AsQueryable();
+
+            if (isSupervisor)
+            {
+                filteredQuery = filteredQuery.Where(r => teamUserIds.Contains(r.UserId));
+            }
+
+            var allCount = await filteredQuery.CountAsync();
+            var pendingCount = await filteredQuery.Where(p => p.Status == CashAdvanceRequestStatus.Pending).CountAsync();
+
+            DateTime today = DateTime.Now;
+            int currentMonth = today.Month;
+            int currentYear = today.Year;
+
+            var approvedThisMonth = await filteredQuery
+                .Where(p => p.Status == CashAdvanceRequestStatus.Approved &&
+                            p.UpdatedAt.Month == currentMonth &&
+                            p.UpdatedAt.Year == currentYear)
+                .CountAsync();
+
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            return ApiResponse<object>.Success(new
+            {
+                cashAdvanceRequests,
+                totalRecords,
+                totalPages,
+                currentPage = page,
+                pageSize,
+                hasNextPage = page < totalPages,
+                hasPreviousPage = page > 1,
+                approvedThisMonth,
+                allCount,
+                pendingCount
+            }, "Data request successful.");
+        }
         public async Task<ApiResponse<object>> GetSelfCashAdvanceRequests(int page, int pageSize)
         {
             var user = _httpContextAccessor.HttpContext?.User;
@@ -174,7 +292,6 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             return response;
         }
-
         public async Task<ApiResponse<object>> GetCashAdvanceRequestById(int id)
         {
             var cashAdvanceRequest = await _context.CashAdvanceRequests
@@ -493,8 +610,8 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             if (cashAdvanceRequest == null)
                 return ApiResponse<object>.Success(null, "Cash advance request not found.");
 
-            if (cashAdvanceRequest.Status != CashAdvanceRequestStatus.Pending)
-                return ApiResponse<object>.Success(null, "Can not review a request that has been reviewed already.");
+            if (cashAdvanceRequest.Status != CashAdvanceRequestStatus.ForAdminApproval)
+                return ApiResponse<object>.Success(null, "Can not review a request that has been reviewed already.  cute ni sir jas.");
 
             var existingSchedules = await _context.CashAdvancePaymentSchedules
                 .Where(p => p.CashAdvanceRequestId == id)
@@ -539,6 +656,108 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
         }
 
         public async Task<ApiResponse<object>> Reject(int id, RejectCashAdvanceRequest request)
+        {
+            var admin = _httpContextAccessor.HttpContext?.User;
+            var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var adminName = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(adminIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(adminIdClaim);
+            var cashAdvanceRequest = await _context.CashAdvanceRequests.FindAsync(id);
+
+            if (cashAdvanceRequest == null)
+                return ApiResponse<object>.Success(null, "Cash advance request not found.");
+
+            if (cashAdvanceRequest.Status != CashAdvanceRequestStatus.ForAdminApproval)
+                return ApiResponse<object>.Success(null, "Can not review a request that has been reviewed already.");
+
+            var existingSchedules = await _context.CashAdvancePaymentSchedules
+                .Where(p => p.CashAdvanceRequestId == id)
+                .OrderBy(p => p.PaymentDate)
+                .ToListAsync();
+
+            for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
+            {
+                existingSchedules[i].Status = CashAdvancePaymentStatus.Rejected;
+                existingSchedules[i].UpdatedAt = DateTime.Now;
+            }
+
+            _context.CashAdvancePaymentSchedules.UpdateRange(existingSchedules);
+
+            cashAdvanceRequest.Status = CashAdvanceRequestStatus.Rejected;
+            cashAdvanceRequest.RejectionReason = request.RejectionReason;
+            cashAdvanceRequest.ReviewedBy = userId;
+            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+
+            _context.CashAdvanceRequests.Update(cashAdvanceRequest);
+            await _context.SaveChangesAsync();
+
+            return await SendNotificationAndLog(adminName, cashAdvanceRequest, userId);
+        }
+
+        public async Task<ApiResponse<object>> SupervisorApprove(int id, ApproveCashAdvanceDto request)
+        {
+            var admin = _httpContextAccessor.HttpContext?.User;
+            var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var adminName = admin?.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (string.IsNullOrEmpty(adminName) || string.IsNullOrEmpty(adminIdClaim))
+                return ApiResponse<object>.Success(null, "Invalid token.");
+
+            var userId = int.Parse(adminIdClaim);
+            var cashAdvanceRequest = await _context.CashAdvanceRequests.FindAsync(id);
+
+            if (cashAdvanceRequest == null)
+                return ApiResponse<object>.Success(null, "Cash advance request not found.");
+
+            if (cashAdvanceRequest.Status != CashAdvanceRequestStatus.Pending)
+                return ApiResponse<object>.Success(null, "Can not review a request that has been reviewed already.");
+
+            var existingSchedules = await _context.CashAdvancePaymentSchedules
+                .Where(p => p.CashAdvanceRequestId == id)
+                .OrderBy(p => p.PaymentDate)
+                .ToListAsync();
+
+            if (request.PaymentDates != null && request.PaymentDates.Count > 0)
+            {
+                if (request.PaymentDates.Count != cashAdvanceRequest.MonthsToPay)
+                    return ApiResponse<object>.Success(null, "The number of provided payment dates must match the required months to pay.");
+
+                if (existingSchedules.Count != cashAdvanceRequest.MonthsToPay)
+                    return ApiResponse<object>.Success(null, "Mismatch between stored payment schedules and expected months to pay. Please check the data.");
+
+                for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
+                {
+                    existingSchedules[i].PaymentDate = request.PaymentDates[i];
+                    existingSchedules[i].Status = CashAdvancePaymentStatus.ForEmployeeApproval;
+                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                }
+
+                cashAdvanceRequest.Status = CashAdvanceRequestStatus.ForEmployeeApproval;
+            }
+            else
+            {
+                for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
+                {
+                    existingSchedules[i].Status = CashAdvancePaymentStatus.PendingApproval;
+                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                }
+
+                cashAdvanceRequest.Status = CashAdvanceRequestStatus.ForAdminApproval;
+            }
+
+            cashAdvanceRequest.ReviewedBy = userId;
+            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+
+            _context.Update(cashAdvanceRequest);
+            await _context.SaveChangesAsync();
+
+            return await SendNotificationAndLog(adminName, cashAdvanceRequest, userId);
+        }
+
+        public async Task<ApiResponse<object>> SupervisorReject(int id, RejectCashAdvanceRequest request)
         {
             var admin = _httpContextAccessor.HttpContext?.User;
             var adminIdClaim = admin?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

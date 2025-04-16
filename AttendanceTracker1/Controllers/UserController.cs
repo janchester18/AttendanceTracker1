@@ -76,6 +76,10 @@ namespace AttendanceTracker1.Controllers
                         u.Role,
                         u.Created,
                         u.Updated,
+                        Team = _context.UserTeams
+                            .Where(ut => ut.UserId == u.Id)
+                            .Select(ut => ut.Team.Name)
+                            .FirstOrDefault(),
                         OvertimeHours = Math.Floor((
                             // Total overtime hours (converted from minutes to hours)
                             (_context.Attendances
@@ -158,6 +162,10 @@ namespace AttendanceTracker1.Controllers
                         u.Role,
                         u.Created,
                         u.Updated,
+                        Team = _context.UserTeams
+                            .Where(ut => ut.UserId == u.Id)
+                            .Select(ut => ut.Team.Name)
+                            .FirstOrDefault(),
                         OvertimeHours = Math.Floor((
                             // Total overtime hours (converted from minutes to hours)
                             (_context.Attendances
@@ -221,9 +229,30 @@ namespace AttendanceTracker1.Controllers
 
                 user.Updated = DateTime.Now;
 
+                // ✅ Update team assignment if provided
+                if (dto.TeamId.HasValue)
+                {
+                    var teamExists = await _context.Teams.AnyAsync(t => t.Id == dto.TeamId.Value);
+                    if (!teamExists)
+                        return BadRequest(ApiResponse<object>.Failed("Invalid Team ID."));
+
+                    // Remove old assignment
+                    var currentUserTeams = _context.UserTeams.Where(ut => ut.UserId == id);
+                    _context.UserTeams.RemoveRange(currentUserTeams);
+
+                    // Assign new team
+                    var newAssignment = new UserTeam
+                    {
+                        UserId = id,
+                        TeamId = dto.TeamId.Value,
+                        AssignedAt = DateTime.UtcNow
+                    };
+                    _context.UserTeams.Add(newAssignment);
+                }
+
                 await _context.SaveChangesAsync();
 
-                return Ok(ApiResponse<object>.Success(user, "Updated successfully."));
+                return Ok(ApiResponse<object>.Success(null, "Updated successfully."));
             }
 
             catch (Exception ex)

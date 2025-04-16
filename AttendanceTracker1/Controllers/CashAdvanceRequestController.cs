@@ -32,6 +32,21 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        [HttpGet("supervisor")]
+        [Authorize(Roles = "Supervisor")]
+        public async Task<IActionResult> SupervisorGetCashAdvanceRequests(int page = 1, int pageSize = 10, string keyword = null, DateTime? startDate = null, DateTime? endDate = null)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.SupervisorGetCashAdvanceRequests(page, pageSize, keyword, startDate, endDate);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
         [HttpGet("self")]
         [Authorize]
         public async Task<IActionResult> GetSelfCashAdvanceRequests(int page = 1, int pageSize = 10)
@@ -131,6 +146,38 @@ namespace AttendanceTracker1.Controllers
             try
             {
                 var response = await _cashAdvanceRequestService.Reject(id, cashAdvanceReview);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+
+            }
+        }
+
+        [HttpPut("supervisor/approve/{id}")]
+        [Authorize(Roles = "Supervisor")]
+        public async Task<IActionResult> SupervisorApprove(int id, [FromBody] ApproveCashAdvanceDto cashAdvanceReview)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.SupervisorApprove(id, cashAdvanceReview);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+
+            }
+        }
+
+        [HttpPut("supervisor/reject/{id}")]
+        [Authorize(Roles = "Supervisor")]
+        public async Task<IActionResult> SupervisorReject(int id, [FromBody] RejectCashAdvanceRequest cashAdvanceReview)
+        {
+            try
+            {
+                var response = await _cashAdvanceRequestService.SupervisorReject(id, cashAdvanceReview);
                 return Ok(response);
             }
             catch (Exception ex)

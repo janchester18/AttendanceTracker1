@@ -18,5 +18,8 @@ namespace AttendanceTracker1.DTO
 
         [RegularExpression("^(Admin|Employee)$", ErrorMessage = "Role must be either 'Admin' or 'Employee'.")]
         public string? Role { get; set; } // Only allows "Admin" or "Employee"
+        [Required]
+        public int TeamId { get; set; } // <-- optional but allows team assignment
+
     }
 }

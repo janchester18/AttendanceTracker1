@@ -38,6 +38,7 @@ namespace AttendanceTracker1.Models
         public ICollection<Leave>? Approvals { get; set; }
         public ICollection<Overtime>? OvertimeRequests { get; set; }
         public ICollection<Overtime>? OvertimeApprovals { get; set; }
+        public ICollection<UserTeam>? UserTeams { get; set; }
 
         // 🔹 Hash password before saving
         public void SetPassword(string password)
