@@ -261,6 +261,64 @@ namespace AttendanceTracker1.Controllers
             }
         }
 
+        // PUT: api/Users/5
+        [HttpPut("cash-advance/{id}")]
+        public async Task<IActionResult> CashAdvanceUpdateUser(int id, [FromBody] UpdateCaUserDto dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return Ok(ApiResponse<object>.Failed("Validation failed"));
+
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                    return NotFound(new { message = "User not found." });
+
+                // Update only if fields are provided
+                if (dto.Name != null) user.Name = dto.Name;
+
+                if (dto.Email != null) user.Email = dto.Email;
+
+                if (dto.Phone != null) user.Phone = dto.Phone;
+
+                if (dto.Role != null) user.Role = dto.Role;
+
+                if (!string.IsNullOrWhiteSpace(dto.NewPassword)) user.SetPassword(dto.NewPassword);
+
+                user.Updated = DateTime.Now;
+
+                // ✅ Update team assignment if provided
+                if (dto.TeamId.HasValue)
+                {
+                    var teamExists = await _context.Teams.AnyAsync(t => t.Id == dto.TeamId.Value);
+                    if (!teamExists)
+                        return Ok(ApiResponse<object>.Failed("Invalid Team ID."));
+
+                    // Remove old assignment
+                    var currentUserTeams = _context.UserTeams.Where(ut => ut.UserId == id);
+                    _context.UserTeams.RemoveRange(currentUserTeams);
+
+                    // Assign new team
+                    var newAssignment = new UserTeam
+                    {
+                        UserId = id,
+                        TeamId = dto.TeamId.Value,
+                        AssignedAt = DateTime.UtcNow
+                    };
+                    _context.UserTeams.Add(newAssignment);
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(ApiResponse<object>.Success(null, "Updated successfully."));
+            }
+
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Failed(ex.Message));
+            }
+        }
+
         [HttpPut("disable/{id}")]
         public async Task<IActionResult> DisableUser(int id)
         {

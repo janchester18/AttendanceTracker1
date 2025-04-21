@@ -18,7 +18,6 @@ namespace AttendanceTracker1.Models
         public decimal Amount { get; set; }
 
         [Required]
-
         public DateTime NeededDate { get; set; }
 
         [Required(ErrorMessage = "Months to pay is required.")]
