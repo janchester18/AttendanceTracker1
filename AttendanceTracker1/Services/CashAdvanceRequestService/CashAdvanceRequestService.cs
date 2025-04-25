@@ -36,6 +36,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 .Include(x => x.Approver)
                 .Include(x => x.PaymentSchedule)
                 .Where(x => x.Status != CashAdvanceRequestStatus.Pending)
+                .AsSplitQuery() // <-- Add this
                 .AsQueryable();
 
             // ✅ Apply search filter (Keyword)
@@ -125,6 +126,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 .Include(x => x.User)
                 .Include(x => x.Approver)
                 .Include(x => x.PaymentSchedule)
+                .AsSplitQuery() // <-- Add this
                 .AsQueryable();
 
             var user = _httpContextAccessor.HttpContext?.User;
