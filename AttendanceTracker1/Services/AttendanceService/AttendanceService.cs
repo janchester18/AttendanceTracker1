@@ -428,22 +428,14 @@ namespace AttendanceTracker1.Services.AttendanceService
             IQueryable<Attendance> query = _context.Attendances
                .Include(a => a.User);
 
-            if (role == "Employee")
-            {
-                query = query.Where(a => a.VisibilityStatus == VisibilityStatus.Enabled);
-            }
-
-            // Order by VisibilityStatus (Disabled at the end) then by CreatedAt
-            query = query.OrderBy(a => a.VisibilityStatus == VisibilityStatus.Disabled)
-                         .ThenBy(a => a.CreatedAt);
-
             var totalRecords = await query.Where(a => a.UserId == id).CountAsync();
 
-            var attendance = await query
+            var attendances = await query
             .Where(a => a.UserId == userId)
+                  .OrderByDescending(a => a.Date)
             .Skip(skip)
             .Take(pageSize)
-            .OrderByDescending(a => a.Date)
+      
             .Include(a => a.User)
             .Select(a => new
             {
@@ -477,7 +469,7 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             var response = ApiResponse<object>.Success(new
             {
-                attendance,
+                attendances,
                 totalRecords,
                 totalPages,
                 currentPage = page,
