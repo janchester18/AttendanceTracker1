@@ -150,6 +150,7 @@ namespace AttendanceTracker1.Services.NotificationService
                 .OrderByDescending(n => n.CreatedAt) // Stable ordering
                 .Skip(skip) // Skip the records for the previous pages
                 .Take(pageSize) // Limit the number of records to the page size
+                .AsSplitQuery() // Use AsSplitQuery to avoid Cartesian explosion
                 .Select(n => new NotificationResponseDto
                 {
                     Id = n.Id,
