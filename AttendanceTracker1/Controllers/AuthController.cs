@@ -6,6 +6,7 @@ using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services;
+using DENR_IHRMIS.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -49,8 +50,8 @@ namespace AttendanceTracker1.Controllers
                     Email = model.Email,
                     Phone = model.Phone,
                     Role = model.Role ?? "Employee",
-                    Created = DateTime.Now,
-                    Updated = DateTime.Now
+                    Created = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
+                    Updated = DateTimeHelper.ConvertToPST(DateTime.UtcNow)
                 };
 
                 user.SetPassword(model.Password);
@@ -59,28 +60,10 @@ namespace AttendanceTracker1.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                // ✅ Check if team exists
-                var teamExists = await _context.Teams.AnyAsync(t => t.Id == model.TeamId);
-                if (!teamExists)
-                {
-                    return BadRequest(ApiResponse<object>.Failed("Invalid Team ID."));
-                }
-
-                // ✅ Add UserTeam relationship
-                var userTeam = new UserTeam
-                {
-                    UserId = user.Id,
-                    TeamId = model.TeamId,
-                    AssignedAt = DateTime.UtcNow
-                };
-
-                _context.UserTeams.Add(userTeam);
-                await _context.SaveChangesAsync();
-
                 var username = user.Name;
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Authorization")
-                    .Information("{UserName} has been registered at {Time}", username, DateTime.Now);
+                    .Information("{UserName} has been registered at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
                 return Ok(ApiResponse<object>.Success(new { user.Name, user.Role }, "User registered successfully."));
             }
@@ -110,8 +93,8 @@ namespace AttendanceTracker1.Controllers
                     Email = model.Email,
                     Phone = model.Phone,
                     Role = model.Role ?? "Employee",
-                    Created = DateTime.Now,
-                    Updated = DateTime.Now
+                    Created = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
+                    Updated = DateTimeHelper.ConvertToPST(DateTime.UtcNow)
                 };
 
                 user.SetPassword(model.Password);
@@ -141,7 +124,7 @@ namespace AttendanceTracker1.Controllers
                 var username = user.Name;
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Authorization")
-                    .Information("{UserName} has been registered at {Time}", username, DateTime.Now);
+                    .Information("{UserName} has been registered at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
                 return Ok(ApiResponse<object>.Success(new { user.Name, user.Role }, "User registered successfully."));
             }
@@ -184,7 +167,7 @@ namespace AttendanceTracker1.Controllers
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Authorization")
-                    .Information("{UserName} has logged in at {Time}", username, DateTime.Now);
+                    .Information("{UserName} has logged in at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
                 return Ok(response);
             }
@@ -236,7 +219,7 @@ namespace AttendanceTracker1.Controllers
 
                 Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                     .ForContext("Type", "Authorization")
-                    .Information("{UserName} has logged out at {Time}", username, DateTime.Now);
+                    .Information("{UserName} has logged out at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
                 return Ok(ApiResponse<object>.Success(null, "Logged out successfully"));
             }

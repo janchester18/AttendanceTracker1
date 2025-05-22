@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -220,8 +221,8 @@ namespace AttendanceTracker1.Services.OvertimeService
                 Reason = overtimeRequest.Reason,
                 ExpectedOutput = overtimeRequest.ExpectedOutput,
                 Status = OvertimeRequestStatus.Pending,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
+                CreatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
+                UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow)
             };
 
             _context.Overtimes.Add(overtime);
@@ -239,7 +240,7 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Overtime")
-                .Information("{UserName} has requested an overtime at {Time}", username, DateTime.Now);
+                .Information("{UserName} has requested an overtime at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(new { OvertimeId = overtime.Id }, "Overtime request submitted successfully.");
         }
@@ -287,7 +288,7 @@ namespace AttendanceTracker1.Services.OvertimeService
 
         //    Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
         //        .ForContext("Type", "Overtime")
-        //        .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+        //        .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
         //    return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
         //}
@@ -329,7 +330,7 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Overtime")
-                .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+                .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
         }
@@ -376,7 +377,7 @@ namespace AttendanceTracker1.Services.OvertimeService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Overtime")
-                .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+                .Information("{UserName} has {Action} overtime {Id} at {Time}", adminUsername, action, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(null, $"Overtime request {id} has been {overtime.Status}.");
         }
@@ -418,7 +419,7 @@ namespace AttendanceTracker1.Services.OvertimeService
             overtime.EndTime = overtimeUpdateRequest.EndTime ?? overtime.EndTime;
             overtime.Reason = overtimeUpdateRequest.Reason ?? overtime.Reason;
             overtime.ExpectedOutput = overtimeUpdateRequest.ExpectedOutput ?? overtime.ExpectedOutput;
-            overtime.UpdatedAt = DateTime.Now;
+            overtime.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.Overtimes.Update(overtime);
             await _context.SaveChangesAsync();

@@ -1,6 +1,7 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -48,7 +49,7 @@ namespace AttendanceTracker1.Services.HolidayService
                 IsPaid = request.IsPaid,
                 IsNational = request.IsNational,
                 Type = request.Type,
-                UpdatedAt = DateTime.Now
+                UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow)
             };
 
             _context.Holidays.Add(holiday);
@@ -67,7 +68,7 @@ namespace AttendanceTracker1.Services.HolidayService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                .ForContext("Type", "Holiday")
-               .Information("{UserName} has added holiday {Id} at {Time}", adminUsername, holiday.Id, DateTime.Now);
+               .Information("{UserName} has added holiday {Id} at {Time}", adminUsername, holiday.Id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(holiday, $"Holiday successfully created.");
         }
@@ -86,7 +87,7 @@ namespace AttendanceTracker1.Services.HolidayService
             holiday.IsPaid = request.IsPaid ?? holiday.IsPaid;
             holiday.IsNational = request.IsNational ?? holiday.IsNational;
             holiday.Type = request.Type ?? holiday.Type;
-            holiday.UpdatedAt = DateTime.Now;
+            holiday.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             await _context.SaveChangesAsync();
 
@@ -103,7 +104,7 @@ namespace AttendanceTracker1.Services.HolidayService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                .ForContext("Type", "Holiday")
-               .Information("{UserName} has edited holiday {Id} at {Time}", adminUsername, holiday.Id, DateTime.Now);
+               .Information("{UserName} has edited holiday {Id} at {Time}", adminUsername, holiday.Id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             var response = new
             {

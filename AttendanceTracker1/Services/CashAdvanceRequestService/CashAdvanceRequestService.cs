@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
+using DENR_IHRMIS.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -91,7 +92,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 .Where(p => p.Status != CashAdvanceRequestStatus.Pending)
                 .CountAsync();
 
-            DateTime today = DateTime.Now;
+            DateTime today = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             int currentMonth = today.Month;
             int currentYear = today.Year;
 
@@ -210,7 +211,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             var allCount = await filteredQuery.CountAsync();
             var pendingCount = await filteredQuery.Where(p => p.Status == CashAdvanceRequestStatus.Pending).CountAsync();
 
-            DateTime today = DateTime.Now;
+            DateTime today = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             int currentMonth = today.Month;
             int currentYear = today.Year;
 
@@ -373,7 +374,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             if (request.PaymentDates.Count() != request.MonthsToPay)
                 return ApiResponse<object>.Failed("Payment dates must match the number of months to pay.");
 
-            if (request.NeededDate < DateTime.Now)
+            if (request.NeededDate < DateTimeHelper.ConvertToPST(DateTime.UtcNow))
                 return ApiResponse<object>.Failed("Needed date can't be in the past.");
 
             // Validate that payment dates are not earlier than the NeededDate
@@ -427,7 +428,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "CashAdvance")
-                .Information("{UserName} has requested a cash advance with the amount of {Amount} on {Time}", username, cashAdvanceRequest.Amount, DateTime.Now);
+                .Information("{UserName} has requested a cash advance with the amount of {Amount} on {Time}", username, cashAdvanceRequest.Amount, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(new
             {
@@ -472,7 +473,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
                 {
                     existingSchedules[i].Status = CashAdvancePaymentStatus.Rejected;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 _context.CashAdvancePaymentSchedules.UpdateRange(existingSchedules);
@@ -480,7 +481,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.Rejected;
                 cashAdvanceRequest.RejectionReason = request.RejectionReason;
                 cashAdvanceRequest.ReviewedBy = userId;
-                cashAdvanceRequest.UpdatedAt = DateTime.Now;
+                cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 _context.CashAdvanceRequests.Update(cashAdvanceRequest);
 
                 await _context.SaveChangesAsync();
@@ -520,7 +521,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 {
                     existingSchedules[i].PaymentDate = request.PaymentDates[i];
                     existingSchedules[i].Status = CashAdvancePaymentStatus.ForEmployeeApproval;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 // ✅ Set status to "ForEmployeeApproval" only if dates were updated
@@ -532,17 +533,17 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
                 {
                     existingSchedules[i].Status = CashAdvancePaymentStatus.Unpaid;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 // ✅ If no dates are provided, just approve the request
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.Approved;
-                cashAdvanceRequest.UpdatedAt = DateTime.Now;
+                cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             }
 
             cashAdvanceRequest.RejectionReason = request.RejectionReason;
             cashAdvanceRequest.ReviewedBy = userId;
-            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+            cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.Update(cashAdvanceRequest);
             await _context.SaveChangesAsync();
@@ -553,7 +554,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             var action = cashAdvanceRequest.Status.ToString();
 
             var notificationMessage = $"{adminName} has {action} the cash advance request of {user.Name} on {cashAdvanceRequest.UpdatedAt:MMM dd, yyyy}.";
-            var employeeNotificationMessage = $"{adminName} has {action} your cash advance request with the amount of {cashAdvanceRequest.Amount} on {DateTime.Now:MMM dd, yyyy}.";
+            var employeeNotificationMessage = $"{adminName} has {action} your cash advance request with the amount of {cashAdvanceRequest.Amount} on {DateTimeHelper.ConvertToPST(DateTime.UtcNow):MMM dd, yyyy}.";
 
             await _notificationService.CreateAdminNotification(
                 title: "Cash Advance Request Update",
@@ -573,7 +574,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "CashAdvance")
-                .Information("{UserName} has {Action} cash advance request {CashAdvanceId} on {Time}", adminName, action, cashAdvanceRequest.Id, DateTime.Now);
+                .Information("{UserName} has {Action} cash advance request {CashAdvanceId} on {Time}", adminName, action, cashAdvanceRequest.Id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(new
             {
@@ -632,7 +633,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 {
                     existingSchedules[i].PaymentDate = request.PaymentDates[i];
                     existingSchedules[i].Status = CashAdvancePaymentStatus.ForEmployeeApproval;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.ForEmployeeApproval;
@@ -642,14 +643,14 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
                 {
                     existingSchedules[i].Status = CashAdvancePaymentStatus.Unpaid;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.Approved;
             }
 
             cashAdvanceRequest.ReviewedBy = userId;
-            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+            cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.Update(cashAdvanceRequest);
             await _context.SaveChangesAsync();
@@ -683,7 +684,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
             {
                 existingSchedules[i].Status = CashAdvancePaymentStatus.Rejected;
-                existingSchedules[i].UpdatedAt = DateTime.Now;
+                existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             }
 
             _context.CashAdvancePaymentSchedules.UpdateRange(existingSchedules);
@@ -691,7 +692,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             cashAdvanceRequest.Status = CashAdvanceRequestStatus.Rejected;
             cashAdvanceRequest.RejectionReason = request.RejectionReason;
             cashAdvanceRequest.ReviewedBy = userId;
-            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+            cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.CashAdvanceRequests.Update(cashAdvanceRequest);
             await _context.SaveChangesAsync();
@@ -734,7 +735,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 {
                     existingSchedules[i].PaymentDate = request.PaymentDates[i];
                     existingSchedules[i].Status = CashAdvancePaymentStatus.ForEmployeeApproval;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.ForEmployeeApproval;
@@ -744,14 +745,14 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
                 {
                     existingSchedules[i].Status = CashAdvancePaymentStatus.PendingApproval;
-                    existingSchedules[i].UpdatedAt = DateTime.Now;
+                    existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
                 }
 
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.ForAdminApproval;
             }
 
             cashAdvanceRequest.ReviewedBy = userId;
-            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+            cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.Update(cashAdvanceRequest);
             await _context.SaveChangesAsync();
@@ -785,7 +786,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             for (int i = 0; i < cashAdvanceRequest.MonthsToPay; i++)
             {
                 existingSchedules[i].Status = CashAdvancePaymentStatus.Rejected;
-                existingSchedules[i].UpdatedAt = DateTime.Now;
+                existingSchedules[i].UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             }
 
             _context.CashAdvancePaymentSchedules.UpdateRange(existingSchedules);
@@ -793,7 +794,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             cashAdvanceRequest.Status = CashAdvanceRequestStatus.Rejected;
             cashAdvanceRequest.RejectionReason = request.RejectionReason;
             cashAdvanceRequest.ReviewedBy = userId;
-            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+            cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.CashAdvanceRequests.Update(cashAdvanceRequest);
             await _context.SaveChangesAsync();
@@ -831,7 +832,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             // **Update Payment Schedule Status**
             cashAdvancePaymentSched.Status = request.Status;
-            cashAdvancePaymentSched.UpdatedAt = DateTime.Now;
+            cashAdvancePaymentSched.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.CashAdvancePaymentSchedules.Update(cashAdvancePaymentSched);
             await _context.SaveChangesAsync();
@@ -851,7 +852,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
             // **Notifications**
             var action = cashAdvancePaymentSched.Status.ToString();
             var notificationMessage = $"{adminName} has updated the cash advance request payment of {user.Name} to {action} on {cashAdvancePaymentSched.UpdatedAt:MMM dd, yyyy}.";
-            var employeeNotificationMessage = $"{adminName} has updated your cash advance request with the amount of {cashAdvancePaymentSched.Amount} to {action} on {DateTime.Now:MMM dd, yyyy}.";
+            var employeeNotificationMessage = $"{adminName} has updated your cash advance request with the amount of {cashAdvancePaymentSched.Amount} to {action} on {DateTimeHelper.ConvertToPST(DateTime.UtcNow):MMM dd, yyyy}.";
 
             await _notificationService.CreateAdminNotification(
                 title: "Cash Advance Request Update",
@@ -871,7 +872,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "CashAdvance")
-                .Information("{UserName} has set {CashAdvanceId} to {Action} on {Time}", adminName, cashAdvancePaymentSched.Id, action, DateTime.Now);
+                .Information("{UserName} has set {CashAdvanceId} to {Action} on {Time}", adminName, cashAdvancePaymentSched.Id, action, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(cashAdvancePaymentSched, "Payment schedule updated.");
         }
@@ -883,7 +884,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             var action = cashAdvanceRequest.Status.ToString();
             var notificationMessage = $"{adminName} has {action} the cash advance request of {user.Name} on {cashAdvanceRequest.UpdatedAt:MMM dd, yyyy}.";
-            var employeeNotificationMessage = $"{adminName} has {action} your cash advance request with the amount of {cashAdvanceRequest.Amount} on {DateTime.Now:MMM dd, yyyy}.";
+            var employeeNotificationMessage = $"{adminName} has {action} your cash advance request with the amount of {cashAdvanceRequest.Amount} on {DateTimeHelper.ConvertToPST(DateTime.UtcNow):MMM dd, yyyy}.";
 
             await _notificationService.CreateAdminNotification(
                 title: "Cash Advance Request Update",
@@ -903,7 +904,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "CashAdvance")
-                .Information("{UserName} has {Action} cash advance request {CashAdvanceId} on {Time}", adminName, action, cashAdvanceRequest.Id, DateTime.Now);
+                .Information("{UserName} has {Action} cash advance request {CashAdvanceId} on {Time}", adminName, action, cashAdvanceRequest.Id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(null, $"Cash advance set to {action}.");
         }
@@ -949,7 +950,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 }
 
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.Rejected;
-                cashAdvanceRequest.UpdatedAt = DateTime.Now;
+                cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
                 _context.CashAdvanceRequests.Update(cashAdvanceRequest);
                 await _context.SaveChangesAsync();
@@ -987,10 +988,10 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
                 }
 
                 cashAdvanceRequest.Status = CashAdvanceRequestStatus.Approved;
-                cashAdvanceRequest.UpdatedAt = DateTime.Now;
+                cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             }
 
-            cashAdvanceRequest.UpdatedAt = DateTime.Now;
+            cashAdvanceRequest.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.Update(cashAdvanceRequest);
             await _context.SaveChangesAsync();
@@ -1011,7 +1012,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "CashAdvance")
-                .Information("{UserName} has {Action} the payment schedule changes of {CashAdvanceId} on {Time}", username, action, cashAdvanceRequest.Id, DateTime.Now);
+                .Information("{UserName} has {Action} the payment schedule changes of {CashAdvanceId} on {Time}", username, action, cashAdvanceRequest.Id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(new
             {
@@ -1095,7 +1096,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             // Update the payment schedule record with the file path.
             schedule.ImageFilePath = uniqueFileName;
-            schedule.UpdatedAt = DateTime.Now;
+            schedule.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             _context.CashAdvancePaymentSchedules.Update(schedule);
             await _context.SaveChangesAsync();
@@ -1112,7 +1113,7 @@ namespace AttendanceTracker1.Services.CashAdvanceRequestService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "CashAdvance")
-                .Information("{username} has uploaded a receipt for his/her cash advance payment on {Time}.", username, DateTime.Now);
+                .Information("{username} has uploaded a receipt for his/her cash advance payment on {Time}.", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(schedule, $"Receipt upload successful.");
         }

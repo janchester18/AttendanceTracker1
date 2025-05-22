@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -539,7 +540,7 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             var userId = int.Parse(userIdClaim);
 
-            var today = DateTime.Now.Date;
+            var today = DateTimeHelper.ConvertToPST(DateTime.UtcNow).Date;
 
             var existingAttendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == today);
@@ -558,7 +559,7 @@ namespace AttendanceTracker1.Services.AttendanceService
             {
                 UserId = userId,
                 Date = today,
-                ClockIn = DateTime.Now,
+                ClockIn = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
                 ClockOut = parsedClockOut,
                 Status = AttendanceStatus.Present,
                 Remarks = clockInDto.Remarks,
@@ -625,7 +626,7 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
-                .Information("{UserName} clocked in at {Time}", username, DateTime.Now);
+                .Information("{UserName} clocked in at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return response;
         }
@@ -659,7 +660,7 @@ namespace AttendanceTracker1.Services.AttendanceService
             //    return Ok(ApiResponse<object>.Success(null, "Invalid clock-out time format."));
             //}
 
-            attendance.ClockOut = DateTime.Now;
+            attendance.ClockOut = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             attendance.ClockOutLatitude = clockOutDto.ClockOutLatitude;
             attendance.ClockOutLongitude = clockOutDto.ClockOutLongitude;
 
@@ -698,7 +699,9 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             // Total work duration in minutes
             int totalWorkMinutes = (int)(workEnd - workStart).TotalMinutes - breakMinutes;
-            int totalBreakDuration = (int)(attendance.BreakFinish - attendance.BreakStart).Value.TotalMinutes;
+            int totalBreakDuration = attendance.BreakStart.HasValue && attendance.BreakFinish.HasValue
+                ? (int)(attendance.BreakFinish.Value - attendance.BreakStart.Value).TotalMinutes
+                : 0;
             int regularWorkMinutes = (int)((config.OfficeEndTime - config.OfficeStartTime).TotalMinutes - totalBreakDuration);
 
             int actualOvertimeMinutes = Math.Max(0, totalWorkMinutes - regularWorkMinutes);
@@ -751,7 +754,7 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
-                .Information("{UserName} clocked out at {Time}", username, DateTime.Now);
+                .Information("{UserName} clocked out at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             // Format Minutes to "Xh Ym"
             string FormatMinutes(double minutes) => $"{minutes / 60}h {minutes % 60}m";
@@ -791,14 +794,14 @@ namespace AttendanceTracker1.Services.AttendanceService
             if (attendance.BreakStart.HasValue || attendance.BreakFinish.HasValue)
                 return ApiResponse<object>.Success(null, "Break has already been started or ended.");
 
-            attendance.BreakStart = DateTime.Now;
+            attendance.BreakStart = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             await _context.SaveChangesAsync();
 
             var message = "Break has started.";
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
-                .Information("{UserName} started break at {Time}", username, DateTime.Now);
+                .Information("{UserName} started break at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(new { attendance.BreakStart }, message);
         }
@@ -833,7 +836,7 @@ namespace AttendanceTracker1.Services.AttendanceService
             if (attendance.BreakFinish.HasValue)
                 return ApiResponse<object>.Success(null, "Break has already been ended.");
 
-            attendance.BreakFinish = DateTime.Now;
+            attendance.BreakFinish = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             await _context.SaveChangesAsync();
 
             var message = "Break has ended.";
@@ -869,7 +872,7 @@ namespace AttendanceTracker1.Services.AttendanceService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Attendance")
-                .Information("{UserName} ended break at {Time}", username, DateTime.Now);
+                .Information("{UserName} ended break at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(new
             {

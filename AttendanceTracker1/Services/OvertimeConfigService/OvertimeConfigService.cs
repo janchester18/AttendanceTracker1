@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -35,7 +36,7 @@ namespace AttendanceTracker1.Services.OvertimeConfigService
             config.BreakMax = updatedConfig.BreakMax ?? config.BreakMax;
             config.OfficeStartTime = updatedConfig.OfficeStartTime ?? config.OfficeStartTime;
             config.OfficeEndTime = updatedConfig.OfficeEndTime ?? config.OfficeEndTime;
-            config.UpdatedAt = DateTime.Now;
+            config.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             await _context.SaveChangesAsync();
 
@@ -59,7 +60,7 @@ namespace AttendanceTracker1.Services.OvertimeConfigService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Config")
-                .Information("{UserName} has updated the config at {Time}", adminUsername, DateTime.Now);
+                .Information("{UserName} has updated the config at {Time}", adminUsername, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(config, "Config has been updated successfully.");
         }

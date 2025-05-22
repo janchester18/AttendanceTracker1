@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System.Security.Claims;
@@ -211,7 +212,7 @@ namespace AttendanceTracker1.Services.LeaveService
                 EndDate = request.EndDate,
                 Reason = request.Reason,
                 Type = request.Type,
-                CreatedDate = DateTime.Now
+                CreatedDate = DateTimeHelper.ConvertToPST(DateTime.UtcNow)
             };
 
             _context.Leaves.Add(leaveRequest);
@@ -235,7 +236,7 @@ namespace AttendanceTracker1.Services.LeaveService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has requested a leave at {Time}", username, DateTime.Now);
+                .Information("{UserName} has requested a leave at {Time}", username, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return response;
         }
@@ -283,7 +284,7 @@ namespace AttendanceTracker1.Services.LeaveService
             
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
         }
@@ -325,7 +326,7 @@ namespace AttendanceTracker1.Services.LeaveService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
         }
@@ -372,7 +373,7 @@ namespace AttendanceTracker1.Services.LeaveService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTime.Now);
+                .Information("{UserName} has {Action} leave {Id} at {Time}", adminUsername, action, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(null, $"Leave request {id} has been {leave.Status}.");
         }
@@ -402,13 +403,13 @@ namespace AttendanceTracker1.Services.LeaveService
             leave.EndDate = request.EndDate ?? leave.EndDate;
             leave.Reason = request.Reason ?? leave.Reason;
             leave.Type = request.Type ?? leave.Type;
-            leave.UpdatedAt = DateTime.Now;
+            leave.UpdatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
             await _context.SaveChangesAsync();
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has updated leave request {Id} at {Time}", username, id, DateTime.Now);
+                .Information("{UserName} has updated leave request {Id} at {Time}", username, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(leave, "Leave request updated successfully.");
         }
@@ -443,7 +444,7 @@ namespace AttendanceTracker1.Services.LeaveService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{UserName} has canceled leave request {Id} at {Time}", username, id, DateTime.Now);
+                .Information("{UserName} has canceled leave request {Id} at {Time}", username, id, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(leave, "Leave request canceled successfully.");
         }

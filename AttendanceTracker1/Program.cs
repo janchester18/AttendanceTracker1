@@ -210,7 +210,22 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 builder.Services.AddHttpContextAccessor();
 
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables(); // ✅ This line makes it override!
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    if (dbContext.Database.IsRelational())
+    {
+        dbContext.Database.Migrate();
+    }
+}
+
 
 // 🔹 Configure Middleware
 if (app.Environment.IsDevelopment())

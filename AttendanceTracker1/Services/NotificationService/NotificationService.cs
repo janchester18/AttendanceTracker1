@@ -1,6 +1,7 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -29,7 +30,7 @@ namespace AttendanceTracker1.Services.NotificationService
                 Message = message,
                 Type = type,
                 Link = "",
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
                 IsRead = false,
                 Status = Notification.VisibilityStatus.Enabled
             };
@@ -61,7 +62,7 @@ namespace AttendanceTracker1.Services.NotificationService
                 Message = message,
                 Type = type,
                 Link = "",
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
                 IsRead = false,
                 Status = Notification.VisibilityStatus.Enabled
             }).ToList();
@@ -286,9 +287,17 @@ namespace AttendanceTracker1.Services.NotificationService
         {
             var notification = await _context.Notifications.FindAsync(notificationId);
 
-            notification.MarkAsRead();
-            notification.ReadAt = DateTime.Now;
-            await _context.SaveChangesAsync();
+            if (notification == null)
+            {
+                return ApiResponse<object>.Success(null, "Notification not found.");
+            }
+
+            if (!notification.IsRead)
+            {
+                notification.MarkAsRead();
+                notification.ReadAt = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
+                await _context.SaveChangesAsync();
+            }
 
             var notificationResponse = await _context.Notifications
                 .Where(n => n.Id == notificationId)
@@ -296,20 +305,20 @@ namespace AttendanceTracker1.Services.NotificationService
                 {
                     Id = n.Id,
                     UserId = n.UserId,
-                    UserName = n.User != null ? n.User.Name : null, // Avoids cyclic reference
+                    UserName = n.User != null ? n.User.Name : null,
                     Title = n.Title,
                     Message = n.Message,
                     Type = n.Type,
                     Link = n.Link,
                     CreatedAt = n.CreatedAt,
                     IsRead = n.IsRead,
-                    ReadAt = n.ReadAt, // <-- Map ReadAt here
+                    ReadAt = n.ReadAt,
                     Status = n.Status.ToString()
                 }).FirstOrDefaultAsync();
-            if (notificationResponse == null) return ApiResponse<object>.Success(null, "Notification not found.");
 
             return ApiResponse<object>.Success(notificationResponse, "Notification marked as read.");
         }
+
         public async Task<ApiResponse<object>> DeleteNotification(int notificationId)
         {
             var notification = await _context.Notifications.FindAsync(notificationId);

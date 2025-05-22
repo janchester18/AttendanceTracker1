@@ -1,6 +1,7 @@
 ﻿using AttendanceTracker1.Data;
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
+using DENR_IHRMIS.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -227,7 +228,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (!string.IsNullOrWhiteSpace(dto.NewPassword)) user.SetPassword(dto.NewPassword);
 
-                user.Updated = DateTime.Now;
+                user.Updated = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
                 // ✅ Update team assignment if provided
                 if (dto.TeamId.HasValue)
@@ -285,7 +286,7 @@ namespace AttendanceTracker1.Controllers
 
                 if (!string.IsNullOrWhiteSpace(dto.NewPassword)) user.SetPassword(dto.NewPassword);
 
-                user.Updated = DateTime.Now;
+                user.Updated = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
 
                 // ✅ Update team assignment if provided
                 if (dto.TeamId.HasValue)

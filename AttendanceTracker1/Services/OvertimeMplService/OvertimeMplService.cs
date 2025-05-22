@@ -2,6 +2,7 @@
 using AttendanceTracker1.DTO;
 using AttendanceTracker1.Models;
 using AttendanceTracker1.Services.NotificationService;
+using DENR_IHRMIS.Data;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System;
@@ -99,7 +100,7 @@ namespace AttendanceTracker1.Services.OvertimeMplService
         public async Task<ApiResponse<object>> ConvertOvertimeToMpl(int userId, ConvertOvertimeMplDto request)
         {
             // Determine the cutoff period dynamically.
-            var now = DateTime.Now;
+            var now = DateTimeHelper.ConvertToPST(DateTime.UtcNow);
             DateTime cutoffStart, cutoffEnd;
 
             var admin = _httpContextAccessor.HttpContext?.User;
@@ -188,7 +189,7 @@ namespace AttendanceTracker1.Services.OvertimeMplService
                 ResidualOvertimeHours = (decimal)Math.Floor(totalOvertimeHours - ((alreadyConvertedMpl + request.MPLConverted) * 8)),
                 CutoffStartDate = cutoffStart,
                 CutoffEndDate = cutoffEnd,
-                ConversionDate = DateTime.Now,
+                ConversionDate = DateTimeHelper.ConvertToPST(DateTime.UtcNow),
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -215,7 +216,7 @@ namespace AttendanceTracker1.Services.OvertimeMplService
 
             Serilog.Log.ForContext("SourceContext", "AttendanceTracker")
                 .ForContext("Type", "Leave")
-                .Information("{AdminUserName} has converted the overtime of {UserName} to {Mpl} MPL/s on {Time}", adminUsername, username, request.MPLConverted, DateTime.Now);
+                .Information("{AdminUserName} has converted the overtime of {UserName} to {Mpl} MPL/s on {Time}", adminUsername, username, request.MPLConverted, DateTimeHelper.ConvertToPST(DateTime.UtcNow));
 
             return ApiResponse<object>.Success(responseData, "Overtime successfully converted to MPL.");
         }
